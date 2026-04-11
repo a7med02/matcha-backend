@@ -18,29 +18,39 @@ class AuthService {
     constructor(private readonly repository: AuthRepository) {}
 
     public async register(input: RegisterInput): Promise<AuthResult> {
-        const existingUser = await this.repository.findByEmail(input.email);
-
-        if (existingUser) {
-            throw new AppError({
-                statusCode: 409,
-                code: "AUTH_EMAIL_EXISTS",
-                message: "Email is already in use",
-            });
-        }
-
-        const passwordHash = await bcrypt.hash(input.password, env.BCRYPT_SALT_ROUNDS);
-        const user: AuthUser = {
-            id: randomUUID(),
-            email: input.email,
-            name: input.name,
-            passwordHash,
-            createdAt: new Date(),
-        };
-
-        await this.repository.create(user);
-
-        return this.toAuthResult(user);
+    const existingEmail = await this.repository.findByEmail(input.email);
+    if (existingEmail) {
+        throw new AppError({
+            statusCode: 409,
+            code: "AUTH_EMAIL_EXISTS",
+            message: "Email is already in use",
+        });
     }
+
+    const existingUsername = await this.repository.findByUsername(input.username);
+    if (existingUsername) {
+        throw new AppError({
+            statusCode: 409,
+            code: "AUTH_USERNAME_EXISTS",
+            message: "Username is already taken",
+        });
+    }
+
+    const passwordHash = await bcrypt.hash(input.password, env.BCRYPT_SALT_ROUNDS);
+
+    const user: AuthUser = {
+        id: randomUUID(),
+        firstname: input.firstname,
+        lastname: input.lastname,  
+        username: input.username,  
+        email: input.email,
+        passwordHash,
+        createdAt: new Date(),
+    };
+
+    await this.repository.create(user);
+    return this.toAuthResult(user);
+}
 
     public async login(input: LoginInput): Promise<AuthResult> {
         const user = await this.repository.findByEmail(input.email);
@@ -104,7 +114,9 @@ class AuthService {
         return {
             id: user.id,
             email: user.email,
-            name: user.name,
+            firstname: user.firstname,
+            lastname: user.lastname,
+            username: user.username,
             createdAt: user.createdAt,
         };
     }
