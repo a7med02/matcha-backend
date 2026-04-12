@@ -10,6 +10,8 @@ const envSchema = z.object({
     JWT_SECRET: z.string().min(32).default("dev_only_replace_with_secure_secret_123456"),
     JWT_EXPIRES_IN: z.string().default("15m"),
     BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(10).max(14).default(12),
+    // Postgres Database variables
+    DATABASE_URL: z.string().min(1),
 });
 
 const parsed = envSchema.safeParse(process.env);

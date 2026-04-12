@@ -1,6 +1,6 @@
 type LogLevel = "info" | "warn" | "error";
 
-type LogMeta = Record<string, unknown>;
+type LogMeta = Record<string, unknown> & { err?: Error };
 
 const write = (level: LogLevel, message: string, meta?: LogMeta): void => {
     const payload = {

@@ -1,6 +1,9 @@
 import { app } from "./app";
 import { env } from "./config/env";
 import { logger } from "./config/logger";
+import { getPool } from "./lib/db/db";
+
+const pool = getPool();
 
 const server = app.listen(env.PORT, () => {
     logger.info("HTTP server started", {
@@ -9,18 +12,24 @@ const server = app.listen(env.PORT, () => {
     });
 });
 
-const shutdown = (signal: string): void => {
+const shutdown = async (signal: string): Promise<void> => {
     logger.info("Shutdown signal received", { signal });
 
-    server.close(() => {
-        logger.info("HTTP server stopped");
-        process.exit(0);
-    });
+    try {
+        await pool.end();
+        logger.info("Database pool closed");
 
-    setTimeout(() => {
-        logger.error("Forced shutdown after timeout");
+        server.close(() => {
+            logger.info("HTTP server stopped");
+            
+            setTimeout(() => {
+                process.exit(0);
+            }, 100); 
+        });
+    } catch (err: any) {
+        logger.error("Error during shutdown", { err });
         process.exit(1);
-    }, 10_000).unref();
+    }
 };
 
 process.on("SIGINT", () => shutdown("SIGINT"));
