@@ -6,18 +6,62 @@ const { Pool } = pg;
 
 let pool: pg.Pool;
 
-export const getPool = () => {
-    if (!pool) {
-        logger.info("Creating a new database pool...");
+let isConnecting = false;
+
+export const getPool = (): pg.Pool => {
+    if (pool) {
+        return pool;
+    }
+
+    if (isConnecting) {
+        throw new Error("Database pool is currently initializing.");
+    }
+
+    try {
+        isConnecting = true;
+        logger.info("Initializing database pool...");
+
+        if (!env.DATABASE_URL) {
+            throw new Error("DATABASE_URL is not defined in environment variables.");
+        }
+
         pool = new Pool({
             connectionString: env.DATABASE_URL,
+            max: 20,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 2000,
         });
 
         pool.on("error", (err) => {
-            logger.error("Inexpected error on idle client", { err });
+            logger.error("Unexpected error on idle database client", {
+                message: err.message,
+                stack: err.stack,
+            });
         });
+
+        return pool;
+    } catch (err) {
+        logger.error("Failed to create database pool", { err });
+        throw err;
+    } finally {
+        isConnecting = false;
     }
+};
 
-    return pool;
-}
+export const shutdownPool = async () => {
+    if (pool) {
+        logger.info("Shutting down database pool...");
 
+        try {
+            await pool.end();
+
+            logger.info("Database pool has been shut down successfully.");
+        } catch (err: any) {
+            logger.error("Failed to shutdown database pool", { err });
+        } finally {
+            pool = null as any;
+        }
+    } else {
+        logger.warn("Shutdown called, but no active pool was found.");
+    }
+};
