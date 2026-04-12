@@ -1,0 +1,5 @@
+Function,Purpose,Use Case
+"coalesce(val1, val2)",Returns the first non-null value.,Handling missing data in reports.
+"nullif(val1, val2)",Returns NULL if the two values are equal.,"Preventing ""Divide by Zero"" errors."
+current_user,Returns the name of the logged-in user.,Security auditing.
+current_database(),Returns the name of the current DB.,Scripting/DevOps.

@@ -1,0 +1,6 @@
+Object,Purpose,Benefit
+VIEW,"A ""virtual table"" based on a stored SELECT query.",Simplifies complex queries for users.
+INDEX,A lookup structure (like a book's index).,drastically speeds up data retrieval.
+PROCEDURE,A stored script that can perform multiple steps.,Automates complex tasks on the server.
+TRIGGER,A script that runs automatically when an event occurs.,"e.g., ""When a user is deleted, log it in the audit table."""
+SCHEMA,A folder-like namespace for organizing tables.,Keeps different app modules separate.

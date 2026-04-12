@@ -1,0 +1,6 @@
+Category,Name,Purpose,Key Commands
+DDL,Data Definition Language,Defining the structure (Schema).,"CREATE, ALTER, DROP, TRUNCATE"
+DML,Data Manipulation Language,Managing the data itself.,"INSERT, UPDATE, DELETE"
+DQL,Data Query Language,Retrieving data.,SELECT
+DCL,Data Control Language,Permissions and Security.,"GRANT, REVOKE"
+TCL,Transaction Control Language,"Managing changes and ""undoing"".","COMMIT, ROLLBACK, SAVEPOINT"

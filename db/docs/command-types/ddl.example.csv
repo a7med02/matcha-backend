@@ -1,0 +1,5 @@
+Command,Action,SQL Example
+CREATE,Creates a new table or object.,"CREATE TABLE employees (id INT, name TEXT);"
+ALTER,Modifies an existing structure.,ALTER TABLE employees ADD COLUMN email TEXT;
+DROP,Deletes a table or object entirely.,DROP TABLE employees;
+TRUNCATE,Removes all data but keeps the table structure.,TRUNCATE TABLE employees;

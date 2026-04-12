@@ -1,0 +1,8 @@
+Rule (Constraint),Description,Example Usage
+NOT NULL,Prevents a column from having a NULL (empty) value.,name TEXT NOT NULL
+UNIQUE,Ensures all values in the column are distinct.,email VARCHAR(255) UNIQUE
+PRIMARY KEY,Uniquely identifies each row (Implicitly NOT NULL + UNIQUE).,id INT PRIMARY KEY
+FOREIGN KEY,Links a column to the Primary Key of another table.,user_id INT REFERENCES users(id)
+CHECK,Verifies that values meet a specific logical condition.,price NUMERIC CHECK (price > 0)
+DEFAULT,Assigns a value if the user provides none.,status TEXT DEFAULT 'pending'
+EXCLUSION,"Ensures if any two rows are compared, they don't overlap (Used for scheduling).","EXCLUDE USING gist (room_id WITH =, reserved_period WITH &&)"

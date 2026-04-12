@@ -1,0 +1,6 @@
+Join Type,Description,Result
+INNER JOIN,Returns records with matching values in both tables.,"Only the ""overlap."""
+LEFT JOIN,Returns all records from the left table and matched from the right.,Left table stays whole; right may have NULLs.
+RIGHT JOIN,Returns all records from the right table and matched from the left.,Right table stays whole; left may have NULLs.
+FULL JOIN,Returns all records when there is a match in either table.,Everything from both sides.
+CROSS JOIN,Returns the Cartesian product of both tables.,Every row in A matched with every row in B.

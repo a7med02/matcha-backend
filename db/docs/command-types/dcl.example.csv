@@ -1,0 +1,3 @@
+Command,Action,SQL Example
+GRANT,Gives a user permission to a table.,"GRANT SELECT, INSERT ON employees TO app_user;"
+REVOKE,Takes away a user's permission.,REVOKE DELETE ON employees FROM app_user;

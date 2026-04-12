@@ -1,0 +1,18 @@
+Category,Type,Best Used For...
+Numeric,"SMALLINT, INT, BIGINT",Whole numbers of varying sizes.
+,"NUMERIC(p,s) or DECIMAL",Financial data (exact decimals).
+,"REAL, DOUBLE PRECISION",Scientific math (inexact decimals).
+,"SERIAL, BIGSERIAL",Auto-incrementing ID numbers.
+Character,VARCHAR(n),Text with a specific maximum length.
+,CHAR(n),"Fixed-length text (e.g., Country Codes like ""US"")."
+,TEXT,Strings of any length (Postgres preferred).
+Date/Time,DATE,Calendar dates (YYYY-MM-DD).
+,TIME,Time of day without a date.
+,TIMESTAMP,Both date and time.
+,TIMESTAMPTZ,Date and time with Time Zone awareness.
+,INTERVAL,"Durations (e.g., ""3 hours"", ""12 days"")."
+Boolean,BOOLEAN,"TRUE, FALSE, or NULL."
+Special,JSONB,"Efficient, indexed JSON data (NoSQL style)."
+,UUID,Universally Unique Identifiers.
+,ENUM,"A static, predefined list of values."
+,INET / CIDR,IP addresses and network subnets.

@@ -1,0 +1,5 @@
+Function,Purpose,Example Result
+"round(numeric, scale)",Rounds to the nearest specified decimal.,10.55
+ceil(numeric),Rounds up to the nearest integer.,11
+floor(numeric),Rounds down to the nearest integer.,10
+abs(numeric),Returns the absolute (positive) value.,5

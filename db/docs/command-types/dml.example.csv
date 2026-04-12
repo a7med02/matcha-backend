@@ -1,0 +1,4 @@
+Command,Action,SQL Example
+INSERT,Adds a new row of data.,"INSERT INTO employees (id, name) VALUES (1, 'Alice');"
+UPDATE,Modifies existing data in a row.,UPDATE employees SET name = 'Bob' WHERE id = 1;
+DELETE,Removes specific rows.,DELETE FROM employees WHERE id = 1;

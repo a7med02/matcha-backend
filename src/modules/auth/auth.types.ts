@@ -1,9 +1,7 @@
 export type AuthUser = {
     id: string;
-    firstname: string;
-    lastname: string;
-    username: string;
     email: string;
+    name: string;
     passwordHash: string;
     createdAt: Date;
 };
@@ -11,17 +9,13 @@ export type AuthUser = {
 export type PublicUser = {
     id: string;
     email: string;
-    firstname: string;
-    lastname: string;
-    username: string;
+    name: string;
     createdAt: Date;
 };
 
 export type RegisterInput = {
     email: string;
-    firstname: string;
-    lastname: string;
-    username: string;
+    name: string;
     password: string;
 };
 

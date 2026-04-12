@@ -1,0 +1,4 @@
+Command,Action,SQL Example
+COMMIT,Saves all changes permanently.,UPDATE accounts SET bal = 100; COMMIT;
+ROLLBACK,Undoes changes since the last commit.,DELETE FROM users; ROLLBACK; -- (data returns!)
+SAVEPOINT,"Sets a ""checkpoint"" within a transaction.",SAVEPOINT sp1;

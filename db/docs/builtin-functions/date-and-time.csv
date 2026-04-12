@@ -1,0 +1,6 @@
+Function,Purpose,Example Result
+now(),Current date and time (transaction start).,2026-04-11 14:23:32+00
+current_date,Current date only.,2026-04-11
+current_time,Current time only.,14:23:32
+age(timestamp),Calculates interval from then to now.,3 years 2 mons 5 days
+"date_trunc('unit', ts)","Truncates time (e.g., to the 'hour' or 'month').",2026-04-11 14:00:00w

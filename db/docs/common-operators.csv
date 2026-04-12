@@ -1,0 +1,6 @@
+Operator,Description,Example
+IN,Checks if a value matches any value in a list.,"WHERE country IN ('US', 'UK')"
+BETWEEN,Checks if a value is within a range (inclusive).,WHERE age BETWEEN 18 AND 30
+LIKE / ILIKE,Pattern matching (ILIKE is case-insensitive).,WHERE name LIKE 'John%'
+IS NULL,Checks for empty values.,WHERE email IS NULL
+DISTINCT,Removes duplicate values from results.,SELECT DISTINCT city

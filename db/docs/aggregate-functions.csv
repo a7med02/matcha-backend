@@ -1,0 +1,6 @@
+Function,Description,Example
+COUNT(),Returns the number of rows.,COUNT(user_id)
+SUM(),Returns the total sum of a numeric column.,SUM(order_total)
+AVG(),Returns the average value.,AVG(price)
+MIN() / MAX(),Returns the smallest or largest value.,MAX(created_at)
+STRING_AGG(),Concatenates text from multiple rows into one string.,"STRING_AGG(tags, ',')"

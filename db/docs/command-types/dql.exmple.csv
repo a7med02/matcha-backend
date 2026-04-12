@@ -1,0 +1,2 @@
+Command,Action,SQL Example
+SELECT,Retrieves data from the database.,"SELECT name, email FROM employees WHERE id > 10;"

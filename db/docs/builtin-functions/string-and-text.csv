@@ -1,0 +1,7 @@
+Function,Purpose,Example Result
+upper(text),Converts text to uppercase.,HELLO
+lower(text),Converts text to lowercase.,hello
+length(text),Returns number of characters.,5
+trim(text),Removes leading/trailing whitespace.,'clean'
+"concat(a, b, ...)",Joins multiple strings together.,'FirstName LastName'
+substring(text from x to y),Extracts a portion of a string.,'Sub'
