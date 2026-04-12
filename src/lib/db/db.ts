@@ -28,8 +28,8 @@ export const getPool = (): pg.Pool => {
         pool = new Pool({
             connectionString: env.DATABASE_URL,
             max: 20,
-            idleTimeoutMillis: 30000,
-            connectionTimeoutMillis: 2000,
+            idleTimeoutMillis: 60_000,
+            connectionTimeoutMillis: 2_000,
         });
 
         pool.on("error", (err) => {
@@ -40,7 +40,7 @@ export const getPool = (): pg.Pool => {
         });
 
         return pool;
-    } catch (err) {
+    } catch (err: any) {
         logger.error("Failed to create database pool", { err });
         throw err;
     } finally {

@@ -5,7 +5,7 @@ CREATE TABLE users (
     username VARCHAR(20) NOT NULL UNIQUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-)
+);
 
 CREATE TABLE email_addresses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -16,7 +16,7 @@ CREATE TABLE email_addresses (
     verification_code VARCHAR(6) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-)
+);
 
 CREATE TABLE security (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -34,4 +34,4 @@ CREATE TABLE security (
     last_login_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-)
+);

@@ -3,7 +3,7 @@ import { env } from "./config/env";
 import { logger } from "./config/logger";
 import { getPool, shutdownPool } from "./lib/db/db";
 
-const pool = getPool();
+getPool();
 
 const server = app.listen(env.PORT, () => {
     logger.info("HTTP server started", {
