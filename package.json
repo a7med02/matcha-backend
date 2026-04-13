@@ -12,7 +12,10 @@
         "lint:fix": "eslint . --fix",
         "format": "prettier . --write",
         "format:check": "prettier . --check",
-        "migrate": "tsx ./src/lib/db/migrate.ts"
+        "migrate": "tsx ./src/db/manage-db.ts",
+        "drop": "tsx ./src/db/manage-db.ts drop",
+        "refresh": "tsx ./src/db/manage-db.ts refresh",
+        "test": "tsx ./src/lib/db/queries/error-handler.ts"
     },
     "keywords": [],
     "author": "",
@@ -25,6 +28,7 @@
         "express": "^5.2.1",
         "express-rate-limit": "^8.3.2",
         "helmet": "^8.1.0",
+        "http-status-codes": "^2.3.0",
         "jsonwebtoken": "^9.0.3",
         "morgan": "^1.10.1",
         "pg": "^8.20.0",
