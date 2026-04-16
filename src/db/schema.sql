@@ -1,8 +1,8 @@
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50) NOT NULL,
-    username VARCHAR(20) NOT NULL UNIQUE,
+    first_name VARCHAR(50) NOT NULL CHECK (char_length(first_name) >= 2),
+    last_name VARCHAR(50) NOT NULL CHECK (char_length(last_name) >= 2),
+    username VARCHAR(20) NOT NULL UNIQUE CHECK (char_length(username) >= 2),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -10,7 +10,7 @@ CREATE TABLE users (
 CREATE TABLE email_addresses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    email VARCHAR(255) NOT NULL UNIQUE,
+    email VARCHAR(254) NOT NULL UNIQUE CHECK (char_length(email) >= 5),
     verified BOOLEAN NOT NULL DEFAULT false,
     verification_code VARCHAR(6) NOT NULL,
     verification_attempts INT DEFAULT 0,

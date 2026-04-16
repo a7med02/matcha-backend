@@ -1,21 +1,27 @@
 export type AuthUser = {
     id: string;
+    firstName: string;
+    lastName: string;
+    username: string;
     email: string;
-    name: string;
     passwordHash: string;
     createdAt: Date;
 };
 
 export type PublicUser = {
     id: string;
+    firstName: string;
+    lastName: string;
+    username: string;
     email: string;
-    name: string;
     createdAt: Date;
 };
 
 export type RegisterInput = {
+    firstName: string;
+    lastName: string;
+    username: string;
     email: string;
-    name: string;
     password: string;
 };
 

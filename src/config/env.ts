@@ -10,7 +10,26 @@ const envSchema = z.object({
     JWT_SECRET: z.string().min(32).default("dev_only_replace_with_secure_secret_123456"),
     JWT_EXPIRES_IN: z.string().default("15m"),
     BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(10).max(14).default(12),
+    FIRST_NAME_MIN_LENGTH: z.coerce.number().int().min(1).default(2),
+    FIRST_NAME_MAX_LENGTH: z.coerce.number().int().min(1).default(50),
+    LAST_NAME_MIN_LENGTH: z.coerce.number().int().min(1).default(2),
+    LAST_NAME_MAX_LENGTH: z.coerce.number().int().min(1).default(50),
+    USERNAME_MIN_LENGTH: z.coerce.number().int().min(1).default(2),
+    USERNAME_MAX_LENGTH: z.coerce.number().int().min(1).default(20),
+    PASSWORD_MIN_LENGTH: z.coerce.number().int().min(1).default(8),
+    PASSWORD_MAX_LENGTH: z.coerce.number().int().min(1).default(72),
+    EMAIL_MIN_LENGTH: z.coerce.number().int().min(1).default(5),
+    EMAIL_MAX_LENGTH: z.coerce.number().int().min(1).default(254),
+
+    RECOVERY_CODE_LENGTH: z.coerce.number().int().min(1).default(8),
+    RECOVERY_CODE_MAX_COUNT: z.coerce.number().int().min(1).default(10),
+    VERIFICATION_CODE_LENGTH: z.coerce.number().int().min(1).default(6),
+    MAX_VERIFICATION_ATTEMPTS: z.coerce.number().int().min(1).default(3),
+
     // Postgres Database variables
+    IDLE_TIMEOUT_MILLIS: z.coerce.number().int().min(0).default(60_000),
+    CONNECTION_TIMEOUT_MILLIS: z.coerce.number().int().min(0).default(2_000),
+
     DATABASE_URL: z.string().min(1),
 });
 

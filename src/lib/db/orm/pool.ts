@@ -1,6 +1,6 @@
 import pg from "pg";
-import { env } from "../../config/env";
-import { logger } from "../../config/logger";
+import { env } from "../../../config/env";
+import { logger } from "../../../config/logger";
 
 const { Pool } = pg;
 
@@ -22,14 +22,15 @@ export const getPool = (): pg.Pool => {
         logger.info("Initializing database pool...");
 
         if (!env.DATABASE_URL) {
-            throw new Error("DATABASE_URL is not defined in environment variables.");
+            logger.error("DATABASE_URL is not defined in environment variables.");
+            process.exit(1);
         }
 
         pool = new Pool({
             connectionString: env.DATABASE_URL,
             max: 20,
-            idleTimeoutMillis: 60_000,
-            connectionTimeoutMillis: 2_000,
+            idleTimeoutMillis: env.IDLE_TIMEOUT_MILLIS || 60_000,
+            connectionTimeoutMillis: env.CONNECTION_TIMEOUT_MILLIS || 2_000,
         });
 
         pool.on("error", (err) => {
@@ -37,18 +38,19 @@ export const getPool = (): pg.Pool => {
                 message: err.message,
                 stack: err.stack,
             });
+            process.exit(1);
         });
 
         return pool;
     } catch (err: any) {
         logger.error("Failed to create database pool", { err });
-        throw err;
+        process.exit(1);
     } finally {
         isConnecting = false;
     }
 };
 
-export const shutdownPool = async () => {
+const shutdownPool = async () => {
     if (pool) {
         logger.info("Shutting down database pool...");
 
@@ -65,3 +67,10 @@ export const shutdownPool = async () => {
         logger.warn("Shutdown called, but no active pool was found.");
     }
 };
+
+const handleExit = async () => {
+    await shutdownPool();
+};
+
+process.on("SIGINT", handleExit);
+process.on("SIGTERM", handleExit);

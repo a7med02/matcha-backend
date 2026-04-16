@@ -1,9 +1,25 @@
 import type { RequestHandler } from "express";
-import type { ZodType } from "zod";
+import { z, type ZodType } from "zod";
 import { AppError } from "../errors/app-error";
 
 const validateBody = <TBody>(schema: ZodType<TBody>): RequestHandler => {
     return (req, _res, next) => {
+        if (req.body === undefined) {
+            next(
+                new AppError({
+                    statusCode: 400,
+                    code: "VALIDATION_ERROR",
+                    message: "Request body validation failed",
+                    details: {
+                        errors: [
+                            "Request body is missing. Send a JSON object and set Content-Type to application/json.",
+                        ],
+                    },
+                })
+            );
+            return;
+        }
+
         const parsed = schema.safeParse(req.body);
 
         if (!parsed.success) {
@@ -12,7 +28,7 @@ const validateBody = <TBody>(schema: ZodType<TBody>): RequestHandler => {
                     statusCode: 400,
                     code: "VALIDATION_ERROR",
                     message: "Request body validation failed",
-                    details: parsed.error.flatten(),
+                    details: z.treeifyError(parsed.error),
                 })
             );
             return;

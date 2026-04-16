@@ -31,8 +31,10 @@ class AuthService {
         const passwordHash = await bcrypt.hash(input.password, env.BCRYPT_SALT_ROUNDS);
         const user: AuthUser = {
             id: randomUUID(),
+            firstName: input.firstName,
+            lastName: input.lastName,
+            username: input.username,
             email: input.email,
-            name: input.name,
             passwordHash,
             createdAt: new Date(),
         };
@@ -103,8 +105,10 @@ class AuthService {
     private toPublicUser(user: AuthUser): PublicUser {
         return {
             id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            username: user.username,
             email: user.email,
-            name: user.name,
             createdAt: user.createdAt,
         };
     }

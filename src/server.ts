@@ -3,8 +3,6 @@ import { env } from "./config/env";
 import { logger } from "./config/logger";
 import { getPool, shutdownPool } from "./lib/db/db";
 
-getPool();
-
 const server = app.listen(env.PORT, () => {
     logger.info("HTTP server started", {
         env: env.NODE_ENV,
@@ -14,8 +12,6 @@ const server = app.listen(env.PORT, () => {
 
 const shutdown = (signal: string): void => {
     logger.info("Shutdown signal received", { signal });
-
-    shutdownPool();
 
     server.close(() => {
         logger.info("HTTP server stopped");
