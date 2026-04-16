@@ -14,7 +14,6 @@ import {
     UserUniqueFields,
 } from "./db-types";
 
-// Assuming your other classes (Retrieval, Mutation) are also imported
 export const db = {
     users: new BaseRepository<User, UserUniqueFields>(UsersTableName),
     emailAddresses: new BaseRepository<EmailAddress, EmailAddressUniqueFields>(

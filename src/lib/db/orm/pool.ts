@@ -8,6 +8,10 @@ let pool: pg.Pool;
 
 let isConnecting = false;
 
+/**
+ * Provides a Singleton instance of the PostgreSQL connection pool. Initializes the pool on first call and reuses it for subsequent calls. Handles connection errors and ensures proper shutdown on application exit.
+ * @returns A connected pg.Pool instance ready for querying the database
+ */
 export const getPool = (): pg.Pool => {
     if (pool) {
         return pool;
@@ -28,7 +32,7 @@ export const getPool = (): pg.Pool => {
 
         pool = new Pool({
             connectionString: env.DATABASE_URL,
-            max: 20,
+            max: env.MAX_DB_POOL_SIZE || 20,
             idleTimeoutMillis: env.IDLE_TIMEOUT_MILLIS || 60_000,
             connectionTimeoutMillis: env.CONNECTION_TIMEOUT_MILLIS || 2_000,
         });
@@ -50,7 +54,7 @@ export const getPool = (): pg.Pool => {
     }
 };
 
-const shutdownPool = async () => {
+export const shutdownPool = async () => {
     if (pool) {
         logger.info("Shutting down database pool...");
 

@@ -128,8 +128,8 @@ export class BaseRetrievalOperationsRepository<
         }
     }
 
-    async count(where?: WhereClause<T>) {
-        const { clauses, values } = this.processFilters(where || {});
+    async count(options?: { where?: WhereClause<T> }): Promise<number> {
+        const { clauses, values } = this.processFilters(options?.where || {});
 
         let sql = `SELECT COUNT(*) FROM ${this.tableName}`;
 

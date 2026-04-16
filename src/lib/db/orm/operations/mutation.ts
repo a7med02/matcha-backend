@@ -37,8 +37,8 @@ export class BaseMutationOperationsRepository<T> extends InterfaceRepository<T> 
         }
     }
 
-    async delete(where: WhereClause<T>): Promise<T[]> {
-        const { clauses, values } = this.processFilters(where);
+    async delete(options: { where: WhereClause<T> }): Promise<T[]> {
+        const { clauses, values } = this.processFilters(options.where);
 
         const sql = `DELETE FROM ${this.tableName} WHERE ${clauses} RETURNING *;`;
 

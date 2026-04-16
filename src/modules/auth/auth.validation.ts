@@ -1,4 +1,5 @@
 import { z } from "zod";
+
 import { env } from "../../config/env";
 
 const registerSchema = z.object({
@@ -31,7 +32,7 @@ const registerSchema = z.object({
         .regex(/[!@#$%^&*(),.?":{}|[\]|<>]/, "Must contain one special character"),
 });
 
-type RegisterInput = z.infer<typeof registerSchema>;
+export type RegisterInput = z.infer<typeof registerSchema>;
 
 const loginSchema = z.object({
     email: z.email().min(env.EMAIL_MIN_LENGTH).max(env.EMAIL_MAX_LENGTH),

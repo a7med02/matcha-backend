@@ -1,10 +1,11 @@
-import { WhereClause } from "./operations/types";
-
 import { getPool } from "./pool";
+
+import { WhereClause } from "./operations/types";
 
 export class InterfaceRepository<T> {
     constructor(public tableName: string) {}
 
+    // Follows Singleton Design pattern of getPool() method.
     protected async query(sql: string, params?: readonly unknown[]) {
         const pool = getPool();
         return pool.query(sql, params as any[]);
@@ -45,9 +46,7 @@ export class InterfaceRepository<T> {
                             continue;
                         }
 
-                        const placeholders = inValues
-                            .map(() => `$${paramIndex++}`)
-                            .join(", ");
+                        const placeholders = inValues.map(() => `$${paramIndex++}`).join(", ");
                         clauses.push(`${column} ${sqlOp} (${placeholders})`);
                         values.push(...inValues);
                     } else {

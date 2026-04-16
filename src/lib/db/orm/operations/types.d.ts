@@ -10,6 +10,7 @@
  * | `gte` | **Greater Than or Equal** | `column >= value` |
  * | `in` | **In Array** | `column IN (...values)` |
  * | `like` | **Pattern Match** | `column LIKE 'pattern'` |
+ * | `overlap` | **Array Overlap** | `column && ARRAY[...values]` |
  */
 export type QueryOperator<T> = {
     eq?: T;
@@ -29,6 +30,7 @@ export type WhereClause<T> = {
 
 /**
  * Transforms a list of keys into a union of objects.
+ * Follows Unionized Mapped Type pattern
  * Result for User: { id: string } | { username: string }
  */
 export type UniqueWhere<T, K extends keyof T> = {

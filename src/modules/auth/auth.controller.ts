@@ -1,32 +1,34 @@
+import { StatusCodes } from "http-status-codes";
+
+import { authService } from "./auth.service";
 import type { Request, Response } from "express";
 import { AppError } from "../../common/errors/app-error";
-import { authService } from "./auth.service";
 import type { LoginInput, RegisterInput } from "./auth.types";
 
 const authController = {
     register: async (req: Request, res: Response): Promise<void> => {
         const payload = req.body as RegisterInput;
         const result = await authService.register(payload);
-        res.status(201).json(result);
+        res.status(StatusCodes.CREATED).json(result);
     },
 
     login: async (req: Request, res: Response): Promise<void> => {
         const payload = req.body as LoginInput;
         const result = await authService.login(payload);
-        res.status(200).json(result);
+        res.status(StatusCodes.OK).json(result);
     },
 
     me: async (req: Request, res: Response): Promise<void> => {
         if (!req.auth) {
             throw new AppError({
-                statusCode: 401,
+                statusCode: StatusCodes.UNAUTHORIZED,
                 code: "AUTH_UNAUTHORIZED",
                 message: "Authentication required",
             });
         }
 
         const user = await authService.getCurrentUser(req.auth.userId);
-        res.status(200).json({ user });
+        res.status(StatusCodes.OK).json({ user });
     },
 };
 

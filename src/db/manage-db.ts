@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { logger } from "../config/logger";
-import { getPool, shutdownPool } from "../lib/db/db";
+import { getPool, shutdownPool } from "../lib/db/orm/pool";
 
 const SCHEMA_PATH = path.join(__dirname, "./schema.sql");
 

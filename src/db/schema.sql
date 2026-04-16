@@ -26,8 +26,8 @@ CREATE TABLE securities (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     password_hash TEXT NOT NULL,
     failed_attempts INT DEFAULT 0,
-    locked_until TIMESTAMPTZ,
-    last_failed_at TIMESTAMPTZ,
+    locked_until TIMESTAMPTZ DEFAULT NULL,
+    last_failed_at TIMESTAMPTZ DEFAULT NULL,
 
     mfa_enabled BOOLEAN NOT NULL DEFAULT false,
     mfa_secret TEXT, -- should be encrypted at the application level
@@ -35,17 +35,17 @@ CREATE TABLE securities (
         (mfa_enabled = false) OR (mfa_enabled = true AND mfa_secret IS NOT NULL)
     ),
 
-    recovery_codes TEXT[],
+    recovery_codes TEXT[] DEFAULT '{}', -- should be encrypted at the application level
     password_changed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-    reset_token TEXT,
-    reset_expires_at TIMESTAMPTZ,
+    reset_token TEXT UNIQUE DEFAULT NULL, -- should be encrypted at the application level
+    reset_expires_at TIMESTAMPTZ DEFAULT NULL,
     CONSTRAINT reset_check CHECK (
         (reset_token IS NULL AND reset_expires_at IS NULL) OR 
         (reset_token IS NOT NULL AND reset_expires_at IS NOT NULL)
     ),
 
-    last_login_at TIMESTAMPTZ NOT NULL,
+    last_login_at TIMESTAMPTZ DEFAULT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 

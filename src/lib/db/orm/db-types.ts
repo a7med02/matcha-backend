@@ -25,6 +25,17 @@ export const UserSchema = z.object({
 export const UpsertUserSchema = UserSchema.omit({ id: true, created_at: true, updated_at: true });
 export type UpsertUser = z.infer<typeof UpsertUserSchema>;
 
+/**
+ * Represents a record from the `users` table.
+ * * | Field | Type | Nullable | Default | Constraints |
+ * | :--- | :--- | :--- | :--- | :--- |
+ * | `id` | `UUID` | ❌ No | `gen_random_uuid()` | Primary Key |
+ * | `first_name` | `VARCHAR(50)` | ❌ No | *None* | Min Length: 2 |
+ * | `last_name` | `VARCHAR(50)` | ❌ No | *None* | Min Length: 2 |
+ * | `username` | `VARCHAR(20)` | ❌ No | *None* | **Unique**, Min Length: 2 |
+ * | `created_at` | `TIMESTAMPTZ` | ❌ No | `now()` | Read-only (usually) |
+ * | `updated_at` | `TIMESTAMPTZ` | ❌ No | `now()` | Auto-updated |
+ */
 export type User = z.infer<typeof UserSchema>;
 export type UserUniqueFields = "id" | "username";
 
@@ -71,6 +82,19 @@ export const UpsertEmailAddressSchema = BaseEmailAddressSchema.omit({
 });
 export type UpsertEmailAddress = z.infer<typeof UpsertEmailAddressSchema>;
 
+/**
+ * Represents a record from the `email_addresses` table.
+ * * | Field | Type | Nullable | Default | Constraints |
+ * | :--- | :--- | :--- | :--- | :--- |
+ * | `id` | `UUID` | ❌ No | `gen_random_uuid()` | Primary Key |
+ * | `user_id` | `UUID` | ❌ No | *None* | **FK**: `users(id)` (CASCADE) |
+ * | `email` | `VARCHAR(254)` | ❌ No | *None* | **Unique**, Min Length: 5 |
+ * | `verified` | `BOOLEAN` | ❌ No | `false` | Status of email verification |
+ * | `verification_code` | `VARCHAR(6)` | ❌ No | *None* | Code for verification flow |
+ * | `verification_attempts` | `INT` | ✅ Yes | `0` | Counter for rate limiting |
+ * | `created_at` | `TIMESTAMPTZ` | ❌ No | `now()` | Read-only |
+ * | `updated_at` | `TIMESTAMPTZ` | ❌ No | `now()` | Auto-updated |
+ */
 export type EmailAddress = z.infer<typeof EmailAddressesSchema>;
 export type EmailAddressUniqueFields = "id" | "user_id" | "email";
 
@@ -111,11 +135,26 @@ export const BaseSecuritiesSchema = z.object({
     password_changed_at: z.date(),
     reset_token: z.string().nullable(),
     reset_expires_at: z.date().nullable(),
-    last_login_at: z.date(),
+    last_login_at: z.date().nullable(),
     created_at: z.date(),
     updated_at: z.date(),
 });
 
+/**
+ * Represents a record from the `securities` table.
+ * * | Field | Type | Nullable | Default | Constraints |
+ * | :--- | :--- | :--- | :--- | :--- |
+ * | `id` | `UUID` | ❌ No | `gen_random_uuid()` | Primary Key |
+ * | `user_id` | `UUID` | ❌ No | *None* | **FK**: `users(id)` (CASCADE) |
+ * | `password_hash` | `TEXT` | ❌ No | *None* | Argon2/Bcrypt hash |
+ * | `failed_attempts`| `INT` | ✅ Yes | `0` | Consecutive login failures |
+ * | `locked_until` | `TIMESTAMPTZ`| ✅ Yes | `NULL` | Account lockout expiration |
+ * | `mfa_enabled` | `BOOLEAN` | ❌ No | `false` | MFA status |
+ * | `mfa_secret` | `TEXT` | ✅ Yes | `NULL` | Encrypted TOTP secret |
+ * | `recovery_codes` | `TEXT[]` | ❌ No | `{}` | Encrypted backup codes |
+ * | `reset_token` | `TEXT` | ✅ Yes | `NULL` | **Unique** password reset token |
+ * | `last_login_at` | `TIMESTAMPTZ`| ✅ Yes | `NULL` | Last successful session |
+ */
 export type Security = z.infer<typeof BaseSecuritiesSchema>;
 export type SecurityUniqueFields = "id" | "user_id";
 
