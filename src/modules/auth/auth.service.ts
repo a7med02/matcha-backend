@@ -1,173 +1,66 @@
-import z from "zod";
 import jwt from "jsonwebtoken";
 import { StatusCodes } from "http-status-codes";
+
 import type { SignOptions } from "jsonwebtoken";
 
-import { AppError } from "../../common/errors/app-error";
-import { env } from "../../config/env";
-import { authRepository, type AuthRepository } from "./auth.repository";
 import type {
     AuthResult,
     AuthTokenPayload,
     AuthUser,
+    AuthVerifyEmailResult,
     LoginInput,
     PublicUser,
-    RegisterInput,
+    ResendVerificationResult,
 } from "./auth.types";
-import { _argon2 } from "../../lib/argon2";
+import { env } from "../../config/env";
 import { logger } from "../../config/logger";
-import { db } from "../../lib/db/orm/client";
-import { registerSchema } from "./auth.validation";
-import { generateEmailVerificationCode } from "../../lib/email-verification";
+import { AppError } from "../../common/errors/app-error";
+import { checkEmailDoesNotExists, createRecords } from "./helper/register";
+import { RegisterInput, ResendVerificationInput, VerifyEmailInput } from "./auth.validation";
+import { attemptCodeVerification, markEmailAsVerified } from "./helper/verify-email";
+import { resendVerificationCode } from "./helper/resend-code";
 
 class AuthService {
-    constructor(private readonly repository: AuthRepository) {}
-
-    private toPublicUser(user: AuthUser): PublicUser {
-        return {
-            id: user.id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            username: user.username,
-            email: user.email,
-            createdAt: user.createdAt,
-        };
-    }
-
-    private toAuthResult(user: AuthUser): AuthResult {
-        const payload: AuthTokenPayload = {
-            userId: user.id,
-            email: user.email,
-        };
-
-        const signOptions: SignOptions = {
-            expiresIn: env.JWT_EXPIRES_IN as SignOptions["expiresIn"],
-        };
-
-        const accessToken = jwt.sign(payload, env.JWT_SECRET, signOptions);
-
-        return {
-            user: this.toPublicUser(user),
-            accessToken,
-            tokenType: "Bearer",
-            expiresIn: env.JWT_EXPIRES_IN,
-        };
-    }
-
     /**
      * Registers a new user. Validates input, checks for existing email, hashes password, and creates the user record.
      * @param input Registration data including first name, last name, username, email, and password
      * @returns An AuthResult containing the public user data and access token
      */
-    public async register(input: RegisterInput): Promise<AuthResult> {
-        // 1. Validate input
-        const inputValidation = registerSchema.safeParse(input);
-        if (!inputValidation.success) {
-            const validationErrors = z.treeifyError(inputValidation.error);
-
-            throw new AppError({
-                statusCode: StatusCodes.BAD_REQUEST,
-                code: "AUTH_VALIDATION_ERROR",
-                message: "Invalid registration data",
-                details: validationErrors,
-            });
-        }
-
-        // 2. Check if email already exists
-        const existingUser = await db.emailAddresses.retrieval.findUnique({
-            where: {
-                email: input.email,
-            },
-        });
-        if (existingUser) {
-            throw new AppError({
-                statusCode: StatusCodes.CONFLICT,
-                code: "AUTH_EMAIL_EXISTS",
-                message: "Email is already in use",
-            });
-        }
-
-        // 3. Hash password and create user
-        const passwordHash = await _argon2.hash(input.password);
-
+    public async register(input: RegisterInput): Promise<AuthUser> {
         try {
-            const user = await db.users.persist.create({
-                first_name: input.firstName,
-                last_name: input.lastName,
-                username: input.username,
-            });
-
-            if (!user) {
-                throw new AppError({
-                    statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
-                    code: "AUTH_USER_CREATION_FAILED",
-                    message: "Failed to create user",
-                });
-            }
-
-            const emailAddress = await db.emailAddresses.persist.create({
-                user_id: user.id,
-                email: input.email,
-                verified: false,
-                verification_code: generateEmailVerificationCode(),
-            });
-
-            if (!emailAddress) {
-                await db.users.mutation.delete({
-                    // Rollback user creation
-                    where: {
-                        id: user.id,
-                    },
-                });
-                throw new AppError({
-                    statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
-                    code: "AUTH_USER_CREATION_FAILED",
-                    message: "Failed to create user email address",
-                });
-            }
-
-            const security = await db.securities.persist.create({
-                user_id: user.id,
-                password_hash: passwordHash,
-            });
-
-            if (!security) {
-                await db.users.mutation.delete({
-                    // Rollback user creation
-                    where: {
-                        id: user.id,
-                    },
-                });
-                await db.emailAddresses.mutation.delete({
-                    // Rollback email address creation
-                    where: {
-                        user_id: user.id,
-                    },
-                });
-                throw new AppError({
-                    statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
-                    code: "AUTH_USER_CREATION_FAILED",
-                    message: "Failed to create user security record",
-                });
-            }
+            // Check if email already exists
+            //* if the email already exists, an AppError will be thrown with status code 409
+            await checkEmailDoesNotExists(input.email);
 
             // TODO: Send verification email here (out of scope for now)
             // for now we will just log the verification code to the console for testing purposes
 
-            logger.info(
-                `User registered with email ${input.email}. Verification code: ${emailAddress.verification_code}`
+            const result = await createRecords(
+                input.firstName,
+                input.lastName,
+                input.username,
+                input.email,
+                input.password
             );
 
-            return this.toAuthResult({
-                id: user.id!,
-                firstName: user.first_name!,
-                lastName: user.last_name!,
-                username: user.username!,
-                email: emailAddress.email!,
-                createdAt: user.created_at!,
-            });
+            logger.info(
+                `User registered with email ${input.email}.
+                Verification code: ${result.emailAddress.verification_code}`
+            );
+
+            return {
+                id: result.user.id!,
+                firstName: result.user.first_name!,
+                lastName: result.user.last_name!,
+                username: result.user.username!,
+                email: result.emailAddress.email!,
+                createdAt: result.user.created_at!,
+            };
         } catch (error) {
-            console.error("Error creating user:", error);
+            if (error instanceof AppError) {
+                throw error;
+            }
+            logger.error("Error creating user:", { error });
             throw new AppError({
                 statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
                 code: "AUTH_USER_CREATION_FAILED",
@@ -176,21 +69,43 @@ class AuthService {
         }
     }
 
+    public async verifyEmail(input: VerifyEmailInput): Promise<AuthVerifyEmailResult> {
+        try {
+            const emailRecord = await attemptCodeVerification(input.email, input.verificationCode);
+
+            await markEmailAsVerified(emailRecord);
+
+            return {
+                message: "Email verified successfully",
+            };
+        } catch (error) {
+            logger.error("Email verification failed:", { error });
+            throw error; // Re-throw the error to be handled by the controller
+        }
+    }
+
+    public async resendVerification(
+        input: ResendVerificationInput
+    ): Promise<ResendVerificationResult> {
+        try {
+            await resendVerificationCode(input.email);
+            return {
+                message: "Verification code resent successfully",
+            };
+        } catch (error) {
+            logger.error("Resend verification failed:", { error });
+            throw error; // Re-throw the error to be handled by the controller
+        }
+    }
+
     public async login(input: LoginInput): Promise<AuthResult> {
-        // const user = await this.repository.findByEmail(input.email);
         const user = await db.emailAddresses.retrieval.findUnique({
             where: {
                 email: input.email,
             },
-            // include: {
-            //     user: true,
-            //     security: true,
-            // },
-        });
-
-        const security = await db.securities.retrieval.findUnique({
-            where: {
-                user_id: user?.user_id!,
+            include: {
+                user: true,
+                security: {},
             },
         });
 
@@ -215,21 +130,21 @@ class AuthService {
         return this.toAuthResult(user);
     }
 
-    public async getCurrentUser(userId: string): Promise<PublicUser> {
-        const user = await this.repository.findById(userId);
+    // public async getCurrentUser(userId: string): Promise<PublicUser> {
+    //     const user = await this.repository.findById(userId);
 
-        if (!user) {
-            throw new AppError({
-                statusCode: 404,
-                code: "AUTH_USER_NOT_FOUND",
-                message: "User not found",
-            });
-        }
+    //     if (!user) {
+    //         throw new AppError({
+    //             statusCode: 404,
+    //             code: "AUTH_USER_NOT_FOUND",
+    //             message: "User not found",
+    //         });
+    //     }
 
-        return this.toPublicUser(user);
-    }
+    //     return this.toPublicUser(user);
+    // }
 }
 
-const authService = new AuthService(authRepository);
+const authService = new AuthService();
 
 export { authService };

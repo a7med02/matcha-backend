@@ -16,14 +16,6 @@ export type PublicUser = {
     createdAt: Date;
 };
 
-export type RegisterInput = {
-    firstName: string;
-    lastName: string;
-    username: string;
-    email: string;
-    password: string;
-};
-
 export type LoginInput = {
     email: string;
     password: string;
@@ -34,6 +26,14 @@ export type AuthResult = {
     accessToken: string;
     tokenType: "Bearer";
     expiresIn: string;
+};
+
+export type AuthVerifyEmailResult = {
+    message: string;
+};
+
+export type ResendVerificationResult = {
+    message: string;
 };
 
 export type AuthTokenPayload = {

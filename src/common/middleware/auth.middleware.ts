@@ -1,8 +1,11 @@
 import jwt from "jsonwebtoken";
+
 import type { RequestHandler } from "express";
-import { AppError } from "../errors/app-error";
-import { env } from "../../config/env";
+
 import type { AuthTokenPayload } from "../../modules/auth/auth.types";
+
+import { env } from "../../config/env";
+import { AppError } from "../errors/app-error";
 
 const authMiddleware: RequestHandler = (req, _res, next) => {
     const authorization = req.headers.authorization;

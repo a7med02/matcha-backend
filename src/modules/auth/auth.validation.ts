@@ -32,11 +32,33 @@ const registerSchema = z.object({
         .regex(/[!@#$%^&*(),.?":{}|[\]|<>]/, "Must contain one special character"),
 });
 
-export type RegisterInput = z.infer<typeof registerSchema>;
+type RegisterInput = z.infer<typeof registerSchema>;
+
+const verifyEmailSchema = z.object({
+    email: z
+        .email("Invalid email address")
+        .min(env.EMAIL_MIN_LENGTH, "Email too short")
+        .max(env.EMAIL_MAX_LENGTH, "Email too long"),
+    verificationCode: z.string().regex(/^\d{6}$/, "Verification code must be a 6-digit number"),
+});
+
+type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
+
+const resendVerificationSchema = z.object({
+    email: z
+        .email("Invalid email address")
+        .min(env.EMAIL_MIN_LENGTH, "Email too short")
+        .max(env.EMAIL_MAX_LENGTH, "Email too long"),
+});
+
+type ResendVerificationInput = z.infer<typeof resendVerificationSchema>;
 
 const loginSchema = z.object({
     email: z.email().min(env.EMAIL_MIN_LENGTH).max(env.EMAIL_MAX_LENGTH),
     password: z.string().min(env.PASSWORD_MIN_LENGTH).max(env.PASSWORD_MAX_LENGTH),
 });
 
-export { registerSchema, loginSchema };
+type LoginInput = z.infer<typeof loginSchema>;
+
+export type { RegisterInput, VerifyEmailInput, ResendVerificationInput, LoginInput };
+export { registerSchema, verifyEmailSchema, resendVerificationSchema, loginSchema };

@@ -11,12 +11,26 @@ CREATE TABLE email_addresses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     email VARCHAR(254) NOT NULL UNIQUE CHECK (char_length(email) >= 5),
-    verified BOOLEAN NOT NULL DEFAULT false,
+    is_verified BOOLEAN NOT NULL DEFAULT false,
     verification_code VARCHAR(6) NOT NULL,
-    verification_attempts INT DEFAULT 0,
+    verification_expires_at TIMESTAMPTZ NOT NULL,
+    verification_attempts INT NOT NULL DEFAULT 0,
+    last_verification_attempt_at TIMESTAMPTZ DEFAULT NULL,
+    vcode_sent_at TIMESTAMPTZ DEFAULT NULL,
+    vcode_resend_count INT NOT NULL DEFAULT 0,
+    is_vcode_resend_locked BOOLEAN NOT NULL DEFAULT false,
+    vcode_resend_lock_expires_at TIMESTAMPTZ DEFAULT NULL,
     CONSTRAINT verification_check CHECK (
-        (verified = false) OR (verified = true AND verification_code IS NOT NULL)
+        (is_verified = false) OR (is_verified = true AND verification_code IS NOT NULL)
     ),
+
+    is_locked BOOLEAN NOT NULL DEFAULT false,
+    lock_expires_at TIMESTAMPTZ DEFAULT NULL,
+    CONSTRAINT lock_check CHECK (
+        (is_locked = false AND lock_expires_at IS NULL) OR 
+        (is_locked = true AND lock_expires_at IS NOT NULL)
+    ),
+
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

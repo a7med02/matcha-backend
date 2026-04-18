@@ -1,6 +1,10 @@
 import { UniqueWhere, WhereClause } from "./types";
 
 import { InterfaceRepository } from "../interface-repository";
+import { DB_Error } from "./db-error";
+import { DatabaseError } from "pg";
+import { RelationsMap } from "../base-repository";
+import { getTableFields } from "../db-types";
 
 interface FindOptions<T> {
     select?: (keyof T)[];
@@ -10,14 +14,81 @@ interface FindOptions<T> {
     offset?: number;
 }
 
+type IncludeOptions<R> = {
+    [K in keyof R]?:
+        | boolean
+        | {
+              select?: (keyof R[K])[];
+          };
+};
+
+type RelationIncludeResult<Relation, IncludeOption> = IncludeOption extends {
+    select: (infer SelectedFields)[];
+}
+    ? Pick<Relation, Extract<SelectedFields, keyof Relation>>
+    : Relation;
+
+export type WithIncludes<T, R, I extends IncludeOptions<R>> = Partial<T> & {
+    [K in keyof I & keyof R]: RelationIncludeResult<R[K], NonNullable<I[K]>>;
+};
+
 export class BaseRetrievalOperationsRepository<
     T,
     U extends keyof T,
+    R extends Record<string, any> = {},
 > extends InterfaceRepository<T> {
-    async findUnique(options: {
-        select?: (keyof T)[];
-        where: UniqueWhere<T, U>; // Enforces only UNIQUE fields
-    }) {
+    constructor(
+        tableName: string,
+        public relations: RelationsMap<T> = {}
+    ) {
+        super(tableName);
+    }
+
+    private mapResult = (row: any): any => {
+        if (!row) return null as any;
+
+        const result: any = {};
+        // map the returned row to the expected output format,
+        // handling included relations with __ separator for nested fields
+        for (const [key, value] of Object.entries(row)) {
+            // If the key includes __, it indicates a nested field from a joined table
+            if (key.includes("__")) {
+                const [relName, fieldName] = key.split("__");
+
+                // Initialize the relation object if it doesn't exist
+                if (value === null && !result[relName]) {
+                    result[relName] = null;
+                    continue;
+                }
+                if (!result[relName]) result[relName] = {};
+
+                // Assign the value to the appropriate field in the relation object
+                result[relName][fieldName] = value;
+            } else {
+                // Regular field, assign directly to the result
+                result[key] = value;
+            }
+        }
+        return result;
+    };
+
+    /**
+     * Finds a single record that matches the provided unique criteria. Supports selecting specific fields and including related records based on defined relations.
+     * @param options.where An object specifying the unique field and its value to filter the record. Must contain exactly one unique key-value pair.
+     * @param options.select An optional array of field names to select from the main table. If not provided, all fields will be selected.
+     * @param include An optional object specifying related records to include based on defined relations. Each key corresponds to a relation name, and the value can be a boolean (true to include all fields) or an object with a select property to specify which fields to include from the related table.
+     * @returns
+     */
+    async findUnique<I extends IncludeOptions<R>>({
+        options,
+        include,
+    }: {
+        options: {
+            where: UniqueWhere<T, U>; // Enforces only UNIQUE fields
+            select?: (keyof T)[];
+        };
+        include?: I;
+    }): Promise<WithIncludes<T, R, I> | null> {
         // 1. Cast for safe access and extract the key/value
         const where = options.where as Record<string, any>;
         const keys = Object.keys(options.where);
@@ -26,14 +97,51 @@ export class BaseRetrievalOperationsRepository<
             throw new Error("findUnique requires exactly one unique key-value pair.");
         }
 
-        const columns = options.select ? options.select.join(", ") : "*";
-
         const clause = keys[0];
         const value = where[clause];
 
+        // 1. Build Select Clause
+        let selectClause = options.select
+            ? options.select.map((field) => `${this.tableName}.${String(field)}`).join(", ")
+            : `${this.tableName}.*`;
+
+        let joinClause = "";
+
+        if (include) {
+            for (const [relName, relOptions] of Object.entries(include)) {
+                if (typeof relOptions === "boolean" && relOptions === false) continue;
+
+                const relConfig = this.relations[relName];
+                if (!relConfig) continue;
+
+                // Add LEFT JOIN
+                joinClause += ` LEFT JOIN ${relConfig.table} ON ${this.tableName}.${String(relConfig.localKey)} = ${relConfig.table}.${relConfig.foreignKey}`;
+
+                const hasManualSelect =
+                    typeof relOptions === "object" &&
+                    Array.isArray(relOptions.select) &&
+                    relOptions.select.length > 0;
+
+                if (hasManualSelect) {
+                    const nestedColumns = relOptions
+                        .select!.map(
+                            (field) =>
+                                `${relConfig.table}.${String(field)} AS ${relName}__${String(field)}`
+                        )
+                        .join(", ");
+                    selectClause += `, ${nestedColumns}`;
+                } else {
+                    const relTableFields = getTableFields(relConfig.table);
+                    for (const field in relTableFields) {
+                        selectClause += `, ${relConfig.table}.${String(field)} AS ${relName}__${String(field)}`;
+                    }
+                }
+            }
+        }
+
         // 2. Build the parameterized SQL query
         //! we use parameterized queries to prevent SQL injection attacks
-        const sql = `SELECT ${columns} FROM ${this.tableName} WHERE ${clause} = $1 LIMIT 2;`;
+        const sql = `SELECT ${selectClause} FROM ${this.tableName}${joinClause} WHERE ${this.tableName}.${clause} = $1 LIMIT 2;`;
 
         try {
             // 3. Execute the query and return the result
@@ -49,13 +157,22 @@ export class BaseRetrievalOperationsRepository<
                 );
             }
 
-            return (result.rows[0] as T) || null;
+            return this.mapResult(result.rows[0]);
         } catch (error) {
+            if (error instanceof DatabaseError) {
+                throw new DB_Error(error);
+            }
             throw error;
         }
     }
 
-    async findFirst(option: Omit<FindOptions<T>, "limit">) {
+    /**
+     * Finds the first record that matches the provided criteria. Supports advanced filtering, sorting, and pagination options.
+     * @param param0 An object containing the options for the query, including select fields, where clause, order by, and offset
+     * @returns A promise that resolves to the found record or null if no record is found. Throws an error if a database error occurs during the query.
+     * @throws {DB_Error} If a database error occurs during the query, a DB_Error is thrown with details about the error.
+     */
+    async findFirst({ option }: { option: Omit<FindOptions<T>, "limit"> }) {
         const { select, where, orderBy, offset } = option;
         const values: any[] = [];
 
@@ -85,11 +202,20 @@ export class BaseRetrievalOperationsRepository<
             const result = await this.query(sql, values);
             return (result.rows[0] as T) || null;
         } catch (error) {
+            if (error instanceof DatabaseError) {
+                throw new DB_Error(error);
+            }
             throw error;
         }
     }
 
-    async findMany(options: FindOptions<T> = {}) {
+    /**
+     * Finds multiple records that match the provided criteria. Supports advanced filtering, sorting, and pagination options.
+     * @param param0 An object containing the options for the query, including select fields, where clause, order by, limit, and offset
+     * @returns A promise that resolves to an array of found records. Throws an error if a database error occurs during the query.
+     * @throws {DB_Error} If a database error occurs during the query, a DB_Error is thrown with details about the error.
+     */
+    async findMany({ options = {} }: { options: FindOptions<T> }) {
         const { select, where, orderBy, limit, offset } = options;
         const values: any[] = [];
 
@@ -124,11 +250,20 @@ export class BaseRetrievalOperationsRepository<
             const result = await this.query(sql, values);
             return (result.rows as T[]) || null;
         } catch (error) {
+            if (error instanceof DatabaseError) {
+                throw new DB_Error(error);
+            }
             throw error;
         }
     }
 
-    async count(options?: { where?: WhereClause<T> }): Promise<number> {
+    /**
+     * Counts the number of records that match the provided criteria. Supports advanced filtering options.
+     * @param param0 An object containing the options for the query, including the where clause for filtering
+     * @returns A promise that resolves to the count of matching records. Throws an error if a database error occurs during the query.
+     * @throws {DB_Error} If a database error occurs during the query, a DB_Error is thrown with details about the error.
+     */
+    async count({ options }: { options?: { where?: WhereClause<T> } }): Promise<number> {
         const { clauses, values } = this.processFilters(options?.where || {});
 
         let sql = `SELECT COUNT(*) FROM ${this.tableName}`;
@@ -142,6 +277,9 @@ export class BaseRetrievalOperationsRepository<
 
             return Number(row?.count ?? 0);
         } catch (error) {
+            if (error instanceof DatabaseError) {
+                throw new DB_Error(error);
+            }
             throw error;
         }
     }

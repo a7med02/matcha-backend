@@ -1,7 +1,15 @@
+import { DatabaseError } from "pg";
 import { InterfaceRepository } from "../interface-repository";
+import { DB_Error } from "./db-error";
 
 export class BasePersistenceOperationsRepository<T> extends InterfaceRepository<T> {
-    async create(data: Partial<T>, select?: (keyof T)[]): Promise<Partial<T>> {
+    async create({
+        data,
+        select,
+    }: {
+        data: Partial<T>;
+        select?: (keyof T)[];
+    }): Promise<Partial<T>> {
         const keys = Object.keys(data);
         const values = Object.values(data);
 
@@ -16,11 +24,14 @@ export class BasePersistenceOperationsRepository<T> extends InterfaceRepository<
             const result = await this.query(sql, values);
             return (result.rows[0] as unknown as Partial<T>) || null;
         } catch (error) {
+            if (error instanceof DatabaseError) {
+                throw new DB_Error(error);
+            }
             throw error;
         }
     }
 
-    async createMany(data: Partial<T>[], select?: (keyof T)[]): Promise<T[]> {
+    async createMany({ data, select }: { data: Partial<T>[]; select?: (keyof T)[] }): Promise<T[]> {
         if (data.length === 0) return [];
 
         const keys = Object.keys(data[0]);
@@ -46,6 +57,9 @@ export class BasePersistenceOperationsRepository<T> extends InterfaceRepository<
             const result = await this.query(sql, values);
             return (result.rows as T[]) || null;
         } catch (error) {
+            if (error instanceof DatabaseError) {
+                throw new DB_Error(error);
+            }
             throw error;
         }
     }

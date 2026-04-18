@@ -26,8 +26,8 @@ const validateBody = <TBody>(schema: ZodType<TBody>): RequestHandler => {
             next(
                 new AppError({
                     statusCode: 400,
-                    code: "VALIDATION_ERROR",
-                    message: "Request body validation failed",
+                    code: "AUTH_VALIDATION_ERROR",
+                    message: "Invalid request body",
                     details: z.treeifyError(parsed.error),
                 })
             );

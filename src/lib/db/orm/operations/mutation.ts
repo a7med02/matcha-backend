@@ -1,12 +1,17 @@
 import { WhereClause } from "./types";
 
 import { InterfaceRepository } from "../interface-repository";
+import { DB_Error } from "./db-error";
+import { DatabaseError } from "pg";
 
 export class BaseMutationOperationsRepository<T> extends InterfaceRepository<T> {
-    async update(
-        data: Partial<T>,
-        options: { where: WhereClause<T>; select?: (keyof T)[] }
-    ): Promise<Partial<T>[]> {
+    async update({
+        data,
+        options,
+    }: {
+        data: Partial<T>;
+        options: { where: WhereClause<T>; select?: (keyof T)[] };
+    }): Promise<Partial<T>[]> {
         const setClauses: string[] = [];
         const values: any[] = [];
         let paramIndex = 1;
@@ -33,11 +38,14 @@ export class BaseMutationOperationsRepository<T> extends InterfaceRepository<T> 
             const result = await this.query(sql, values);
             return (result.rows as Partial<T>[]) || [];
         } catch (error) {
+            if (error instanceof DatabaseError) {
+                throw new DB_Error(error);
+            }
             throw error;
         }
     }
 
-    async delete(options: { where: WhereClause<T> }): Promise<T[]> {
+    async delete({ options }: { options: { where: WhereClause<T> } }): Promise<T[]> {
         const { clauses, values } = this.processFilters(options.where);
 
         const sql = `DELETE FROM ${this.tableName} WHERE ${clauses} RETURNING *;`;
@@ -46,6 +54,9 @@ export class BaseMutationOperationsRepository<T> extends InterfaceRepository<T> 
             const result = await this.query(sql, values);
             return (result.rows as T[]) || [];
         } catch (error) {
+            if (error instanceof DatabaseError) {
+                throw new DB_Error(error);
+            }
             throw error;
         }
     }

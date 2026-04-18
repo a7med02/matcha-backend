@@ -46,9 +46,17 @@ export const EmailAddresses = {
     id: "id",
     user_id: "user_id",
     email: "email",
-    verified: "verified",
-    verification_attempts: "verification_attempts",
+    is_verified: "is_verified",
     verification_code: "verification_code",
+    verification_expires_at: "verification_expires_at",
+    verification_attempts: "verification_attempts",
+    last_verification_attempt_at: "last_verification_attempt_at",
+    vcode_sent_at: "vcode_sent_at",
+    vcode_resend_count: "vcode_resend_count",
+    is_vcode_resend_locked: "is_vcode_resend_locked",
+    vcode_resend_lock_expires_at: "vcode_resend_lock_expires_at",
+    is_locked: "is_locked",
+    lock_expires_at: "lock_expires_at",
     created_at: "created_at",
     updated_at: "updated_at",
 } as const;
@@ -57,21 +65,29 @@ const BaseEmailAddressSchema = z.object({
     id: z.uuid(),
     user_id: z.uuid(),
     email: z.email().min(env.EMAIL_MIN_LENGTH).max(env.EMAIL_MAX_LENGTH),
-    verified: z.boolean(),
+    is_verified: z.boolean(),
     verification_code: z.string().length(env.VERIFICATION_CODE_LENGTH),
-    verification_attempts: z.number().int().nullable(),
+    verification_expires_at: z.date(),
+    verification_attempts: z.number().int(),
+    last_verification_attempt_at: z.date().nullable(),
+    vcode_sent_at: z.date().nullable(),
+    vcode_resend_count: z.number().int(),
+    is_vcode_resend_locked: z.boolean(),
+    vcode_resend_lock_expires_at: z.date().nullable(),
+    is_locked: z.boolean(),
+    lock_expires_at: z.date().nullable(),
     created_at: z.date(),
     updated_at: z.date(),
 });
 
 export const EmailAddressesSchema = BaseEmailAddressSchema.refine(
     (data) => {
-        if (!data.verified && !data.verification_code) return false;
+        if (!data.is_verified && !data.verification_code) return false;
         return true;
     },
     {
-        error: "verification_code is required when verified is false",
-        path: ["verified"],
+        error: "verification_code is required when is_verified is false",
+        path: ["is_verified"],
     }
 );
 export const UpsertEmailAddressSchema = BaseEmailAddressSchema.omit({
@@ -89,9 +105,15 @@ export type UpsertEmailAddress = z.infer<typeof UpsertEmailAddressSchema>;
  * | `id` | `UUID` | ❌ No | `gen_random_uuid()` | Primary Key |
  * | `user_id` | `UUID` | ❌ No | *None* | **FK**: `users(id)` (CASCADE) |
  * | `email` | `VARCHAR(254)` | ❌ No | *None* | **Unique**, Min Length: 5 |
- * | `verified` | `BOOLEAN` | ❌ No | `false` | Status of email verification |
+ * | `is_verified` | `BOOLEAN` | ❌ No | `false` | Status of email verification |
  * | `verification_code` | `VARCHAR(6)` | ❌ No | *None* | Code for verification flow |
  * | `verification_attempts` | `INT` | ✅ Yes | `0` | Counter for rate limiting |
+ * | `vcode_sent_at` | `TIMESTAMPTZ` | ✅ Yes | `NULL` | Last time verification code was sent |
+ * | `vcode_resend_count` | `INT` | ✅ Yes | `0` | Count of verification code resends |
+ * | `is_vcode_resend_locked` | `BOOLEAN` | ✅ Yes | `NULL` | Lock status for verification code resends |
+ * | `vcode_resend_lock_expires_at` | `TIMESTAMPTZ` | ✅ Yes | `NULL` | Expiration time for verification code resend lock |
+ * | `is_locked` | `BOOLEAN` | ✅ Yes | `NULL` | Lock status for the email address |
+ * | `lock_expires_at` | `TIMESTAMPTZ` | ✅ Yes | `NULL` | Expiration time for the lock |
  * | `created_at` | `TIMESTAMPTZ` | ❌ No | `now()` | Read-only |
  * | `updated_at` | `TIMESTAMPTZ` | ❌ No | `now()` | Auto-updated |
  */
@@ -185,3 +207,18 @@ export const UpsertSecuritySchema = BaseSecuritiesSchema.omit({
     updated_at: true,
 });
 export type UpsertSecurity = z.infer<typeof UpsertSecuritySchema>;
+
+export const getTableFields = (tableName: string) => {
+    switch (tableName) {
+        case UsersTableName:
+            return Users;
+        case EmailAddressesTableName:
+            return EmailAddresses;
+        case SecuritiesTableName:
+            return Securities;
+        default:
+            throw new Error(`Unknown table name: ${tableName}`);
+    }
+};
+
+// -------------- End of types --------------

@@ -15,9 +15,52 @@ import {
 } from "./db-types";
 
 export const db = {
-    users: new BaseRepository<User, UserUniqueFields>(UsersTableName),
-    emailAddresses: new BaseRepository<EmailAddress, EmailAddressUniqueFields>(
-        EmailAddressesTableName
-    ),
-    securities: new BaseRepository<Security, SecurityUniqueFields>(SecuritiesTableName),
+    users: new BaseRepository<
+        User,
+        UserUniqueFields,
+        { emailAddress: EmailAddress; security: Security }
+    >(UsersTableName, {
+        emailAddress: {
+            table: EmailAddressesTableName,
+            localKey: "id",
+            foreignKey: "user_id",
+        },
+        security: {
+            table: SecuritiesTableName,
+            localKey: "id",
+            foreignKey: "user_id",
+        },
+    }),
+    emailAddresses: new BaseRepository<
+        EmailAddress,
+        EmailAddressUniqueFields,
+        { user: User; security: Security }
+    >(EmailAddressesTableName, {
+        user: {
+            table: UsersTableName,
+            localKey: "user_id",
+            foreignKey: "id",
+        },
+        security: {
+            table: SecuritiesTableName,
+            localKey: "user_id",
+            foreignKey: "user_id",
+        },
+    }),
+    securities: new BaseRepository<
+        Security,
+        SecurityUniqueFields,
+        { user: User; emailAddress: EmailAddress }
+    >(SecuritiesTableName, {
+        user: {
+            table: UsersTableName,
+            localKey: "user_id",
+            foreignKey: "id",
+        },
+        emailAddress: {
+            table: EmailAddressesTableName,
+            localKey: "user_id",
+            foreignKey: "user_id",
+        },
+    }),
 };
