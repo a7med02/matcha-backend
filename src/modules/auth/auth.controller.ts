@@ -5,6 +5,7 @@ import type { Request, Response } from "express";
 import { AppError } from "../../common/errors/app-error";
 import { LoginInput, RegisterInput, VerifyEmailInput } from "./auth.validation";
 import { DB_Error } from "../../lib/db/orm/operations/db-error";
+import { AuthCookie } from "../../lib/cookie";
 
 const authController = {
     register: async (req: Request, res: Response): Promise<void> => {
@@ -95,7 +96,8 @@ const authController = {
         const payload = req.body as LoginInput;
         try {
             const result = await authService.login(payload);
-            res.status(StatusCodes.OK).json(result);
+            AuthCookie.setAuthCookies(res, result.tokens);
+            res.status(StatusCodes.OK).json(result.message);
         } catch (error) {
             if (error instanceof AppError) {
                 res.status(error.statusCode).json({
@@ -115,7 +117,6 @@ const authController = {
                     message: "An unexpected error occurred during login",
                 });
             }
-            return;
         }
     },
 

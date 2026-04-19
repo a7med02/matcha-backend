@@ -5,17 +5,18 @@ import { logger } from "../config/logger";
 import { AuthTokens } from "./jwt";
 
 export class AuthCookie {
-    private isProduction: boolean;
+    private static isProduction: boolean = this.setIsProduction();
 
-    constructor() {
-        this.isProduction = env.NODE_ENV === "production";
-        if (!this.isProduction) logger.warn("Using non-production cookie settings");
+    private static setIsProduction(): boolean {
+        const isProd = env.NODE_ENV === "production";
+        if (!isProd) logger.warn("Using non-production cookie settings");
+        return isProd;
     }
 
     /**
      * The baseline security rules applied to EVERY auth cookie.
      */
-    private getBaseOptions(): CookieOptions {
+    private static getBaseOptions(): CookieOptions {
         return {
             httpOnly: true, // CRITICAL: Blocks frontend JavaScript (XSS protection)
             secure: this.isProduction, // CRITICAL: Requires HTTPS (Packet Sniffing protection)
@@ -26,7 +27,7 @@ export class AuthCookie {
     /**
      * Attaches the freshly generated tokens to the HTTP Response.
      */
-    public setAuthCookies(res: Response, tokens: AuthTokens): void {
+    public static setAuthCookies(res: Response, tokens: AuthTokens): void {
         // It needs to be sent with every normal API request, so path is "/"
         res.cookie("access_token", tokens.accessToken, {
             ...this.getBaseOptions(),
@@ -45,8 +46,10 @@ export class AuthCookie {
     /**
      * Destroys the cookies when the user logs out.
      */
-    public clearAuthCookies(res: Response): void {
+    public static clearAuthCookies(res: Response): void {
         res.clearCookie("access_token", { path: env.ACCESS_TOKEN_PATH || "/" });
-        res.clearCookie("refresh_token", { path: env.REFRESH_TOKEN_PATH || "/api/v1/auth/refresh" });
+        res.clearCookie("refresh_token", {
+            path: env.REFRESH_TOKEN_PATH || "/api/v1/auth/refresh",
+        });
     }
 }

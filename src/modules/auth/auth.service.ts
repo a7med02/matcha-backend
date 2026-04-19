@@ -1,24 +1,19 @@
-import jwt from "jsonwebtoken";
 import { StatusCodes } from "http-status-codes";
 
-import type { SignOptions } from "jsonwebtoken";
-
 import type {
-    AuthResult,
-    AuthTokenPayload,
     AuthUser,
     AuthVerifyEmailResult,
     LoginInput,
-    PublicUser,
     ResendVerificationResult,
 } from "./auth.types";
-import { env } from "../../config/env";
 import { logger } from "../../config/logger";
 import { AppError } from "../../common/errors/app-error";
 import { checkEmailDoesNotExists, createRecords } from "./helper/register";
 import { RegisterInput, ResendVerificationInput, VerifyEmailInput } from "./auth.validation";
 import { attemptCodeVerification, markEmailAsVerified } from "./helper/verify-email";
 import { resendVerificationCode } from "./helper/resend-code";
+import { checkUserExists, loginUser, verifyPassword } from "./helper/login";
+import { AuthTokens } from "../../lib/jwt";
 
 class AuthService {
     /**
@@ -80,7 +75,7 @@ class AuthService {
             };
         } catch (error) {
             logger.error("Email verification failed:", { error });
-            throw error; // Re-throw the error to be handled by the controller
+            throw error;
         }
     }
 
@@ -94,41 +89,37 @@ class AuthService {
             };
         } catch (error) {
             logger.error("Resend verification failed:", { error });
-            throw error; // Re-throw the error to be handled by the controller
+            throw error;
         }
     }
 
-    public async login(input: LoginInput): Promise<AuthResult> {
-        const user = await db.emailAddresses.retrieval.findUnique({
-            where: {
-                email: input.email,
-            },
-            include: {
-                user: true,
-                security: {},
-            },
-        });
+    public async login(input: LoginInput): Promise<{ message: string; tokens: AuthTokens }> {
+        try {
+            const result = await checkUserExists(input.email);
 
-        if (!user) {
-            throw new AppError({
-                statusCode: 401,
-                code: "AUTH_INVALID_CREDENTIALS",
-                message: "Invalid email or password",
-            });
+            await verifyPassword(input.password, result);
+
+            const loginTokens = await loginUser(result.user.id, result.email);
+
+            return {
+                message: "Login successful",
+                tokens: loginTokens,
+            };
+        } catch (error) {
+            logger.error("Login failed:", { error });
+            throw error;
         }
-
-        const passwordMatches = await _argon2.verify(security?.password_hash!, input.password);
-
-        if (!passwordMatches) {
-            throw new AppError({
-                statusCode: 401,
-                code: "AUTH_INVALID_CREDENTIALS",
-                message: "Invalid email or password",
-            });
-        }
-
-        return this.toAuthResult(user);
     }
+
+    // public async getCurrentUser(userId: string): Promise<PublicUser> {
+    //                 userId: result.user.id,
+    //             }),
+    //         };
+    //     } catch (error) {
+    //         logger.error("Login failed:", { error });
+    //         throw error;
+    //     }
+    // }
 
     // public async getCurrentUser(userId: string): Promise<PublicUser> {
     //     const user = await this.repository.findById(userId);

@@ -200,6 +200,7 @@ export const SecuritiesSchema = BaseSecuritiesSchema.refine(
         path: ["reset_token"],
     }
 );
+
 export const UpsertSecuritySchema = BaseSecuritiesSchema.omit({
     id: true,
     user_id: true,
@@ -207,6 +208,43 @@ export const UpsertSecuritySchema = BaseSecuritiesSchema.omit({
     updated_at: true,
 });
 export type UpsertSecurity = z.infer<typeof UpsertSecuritySchema>;
+
+// -------------- Session and related types --------------
+
+export const SessionsTableName = "sessions";
+export const Sessions = {
+    id: "id",
+    user_id: "user_id",
+    session_token: "session_token",
+    expires_at: "expires_at",
+    created_at: "created_at",
+    updated_at: "updated_at",
+} as const;
+
+export const BaseSessionsSchema = z.object({
+    id: z.uuid(),
+    user_id: z.uuid(),
+    session_token: z.string().max(255),
+    expires_at: z.date(),
+    created_at: z.date(),
+    updated_at: z.date(),
+});
+
+/**
+ * Represents a record from the `sessions` table.
+ * * | Field | Type | Nullable | Default | Constraints |
+ * | :--- | :--- | :--- | :--- | :--- |
+ * | `id` | `UUID` | ❌ No | `gen_random_uuid()` | Primary Key |
+ * | `user_id` | `UUID` | ❌ No | *None* | **FK**: `users(id)` (CASCADE) |
+ * | `session_token` | `TEXT` | ❌ No | *None* | Unique session token |
+ * | `expires_at` | `TIMESTAMPTZ`| ❌ No | *None* | Session expiration time |
+ * | `created_at` | `TIMESTAMPTZ`| ❌ No | `now()` | Record creation time |
+ * | `updated_at` | `TIMESTAMPTZ`| ❌ No | `now()` | Record modification time |
+ */
+export type Session = z.infer<typeof BaseSessionsSchema>;
+export type SessionUniqueFields = "id" | "user_id" | "session_token";
+
+// -------------- Other functions --------------
 
 export const getTableFields = (tableName: string) => {
     switch (tableName) {
@@ -216,6 +254,8 @@ export const getTableFields = (tableName: string) => {
             return EmailAddresses;
         case SecuritiesTableName:
             return Securities;
+        case SessionsTableName:
+            return Sessions;
         default:
             throw new Error(`Unknown table name: ${tableName}`);
     }

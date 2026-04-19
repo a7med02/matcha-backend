@@ -21,13 +21,6 @@ export type LoginInput = {
     password: string;
 };
 
-export type AuthResult = {
-    user: PublicUser;
-    accessToken: string;
-    tokenType: "Bearer";
-    expiresIn: string;
-};
-
 export type AuthVerifyEmailResult = {
     message: string;
 };

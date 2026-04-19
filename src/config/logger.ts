@@ -89,4 +89,8 @@ export const logger = {
     info: (message: string, meta?: LogMeta): void => write("info", message, meta),
     warn: (message: string, meta?: LogMeta): void => write("warn", message, meta),
     error: (message: string, meta?: LogMeta): void => write("error", message, meta),
+    fatal: (message: string, meta?: LogMeta): void => {
+        write("error", message, meta);
+        process.exit(1); // Exit the process after logging a fatal error
+    },
 };

@@ -7,6 +7,9 @@ import type { AuthTokenPayload } from "../../modules/auth/auth.types";
 import { env } from "../../config/env";
 import { AppError } from "../errors/app-error";
 
+// Paths that require authentication.
+const PROTECTED_PATHS = ["/api/v1/auth/me"];
+
 const authMiddleware: RequestHandler = (req, _res, next) => {
     const authorization = req.headers.authorization;
 

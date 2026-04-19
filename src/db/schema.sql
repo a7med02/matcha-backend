@@ -65,6 +65,15 @@ CREATE TABLE securities (
 
 );
 
+CREATE TABLE sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_token TEXT NOT NULL UNIQUE, -- should be encrypted at the application level
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- This is a function to update the updated_at field when record is changed
 CREATE OR REPLACE FUNCTION update_modified_column()
 RETURNS TRIGGER AS $$
@@ -91,8 +100,14 @@ CREATE TRIGGER update_email_addresses_modtime
     FOR EACH ROW
     EXECUTE FUNCTION update_modified_column();
 
--- This is a trigger of the updated_modified_column for securify table
+-- This is a trigger of the updated_modified_column for securities table
 CREATE TRIGGER update_securities_modtime
     BEFORE UPDATE ON securities
+    FOR EACH ROW
+    EXECUTE FUNCTION update_modified_column();
+
+-- This is a trigger of the updated_modified_column for sessions table
+CREATE TRIGGER update_sessions_modtime
+    BEFORE UPDATE ON sessions
     FOR EACH ROW
     EXECUTE FUNCTION update_modified_column();

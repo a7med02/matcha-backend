@@ -1,11 +1,11 @@
-import { SignOptions } from "jsonwebtoken";
 import { StatusCodes } from "http-status-codes";
 
+import { JWT } from "../../../lib/jwt";
+import { CRYPTO } from "../../../lib/crypto";
 import { _argon2 } from "../../../lib/argon2";
 import { db } from "../../../lib/db/orm/client";
 import { AppError } from "../../../common/errors/app-error";
-import { AuthResult, AuthTokenPayload, AuthUser, PublicUser } from "../auth.types";
-import { env } from "../../../config/env";
+import { AuthTokenPayload, AuthUser, PublicUser } from "../auth.types";
 
 interface QueryResult {
     id: string;
@@ -66,6 +66,13 @@ const checkUserExists = async (email: string): Promise<QueryResult> => {
     return result as QueryResult;
 };
 
+/**
+ * Verifies the provided plaintext password against the stored password hash.
+ * @param password The plaintext password to verify
+ * @param result The user record containing the stored password hash to compare against
+ * @returns A promise that resolves to true if the password is correct, or throws an AppError if the password is incorrect
+ * @throws {AppError} If the password is incorrect, an AppError with status code 401 is thrown
+ */
 const verifyPassword = async (password: string, result: QueryResult): Promise<boolean> => {
     const passwordMatches = await _argon2.verify(result.security.password_hash, password);
 
@@ -79,33 +86,39 @@ const verifyPassword = async (password: string, result: QueryResult): Promise<bo
     return true;
 };
 
-const toPublicUser = (user: AuthUser): PublicUser => {
-    return {
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        username: user.username,
-        email: user.email,
-        createdAt: user.createdAt,
-    };
+export type LoginTokens = {
+    accessToken: string;
+    refreshToken: string;
 };
 
-const loginUser = (user: AuthUser): AuthResult => {
+/**
+ * Logs in the user by generating JWT tokens and creating a session record in the database.
+ * @param user The authenticated user for whom to generate tokens and create a session
+ * @returns A promise that resolves to a LoginResult containing the public user data and generated tokens
+ * @throws If token generation fails or if there is an error creating the session record, an AppError with status code 500 is thrown
+ */
+const loginUser = async (userId: string, email: string): Promise<LoginTokens> => {
     const payload: AuthTokenPayload = {
-        userId: user.id,
-        email: user.email,
+        userId: userId,
+        email: email,
     };
 
-    const signOptions: SignOptions = {
-        expiresIn: env.JWT_EXPIRES_IN as SignOptions["expiresIn"],
-    };
+    try {
+        const tokens = await JWT.generateTokens(userId, payload);
 
-    const accessToken = jwt.sign(payload, env.JWT_SECRET, signOptions);
+        await db.sessions.persist.create({
+            data: {
+                user_id: userId,
+                session_token: CRYPTO.encrypt(tokens.refreshToken),
+                expires_at: new Date(Date.now() + JWT.getRefreshTokenExpiryMs()),
+            },
+            select: ["id"],
+        });
 
-    return {
-        user: this.toPublicUser(user),
-        accessToken,
-        tokenType: "Bearer",
-        expiresIn: env.JWT_EXPIRES_IN,
-    };
+        return tokens;
+    } catch (error) {
+        throw error;
+    }
 };
+
+export { checkUserExists, verifyPassword, loginUser };
