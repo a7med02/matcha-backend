@@ -136,6 +136,7 @@ export const Securities = {
     password_changed_at: "password_changed_at",
     reset_token: "reset_token",
     reset_expires_at: "reset_expires_at",
+    logged_in: "logged_in",
     last_login_at: "last_login_at",
     created_at: "created_at",
     updated_at: "updated_at",
@@ -157,6 +158,7 @@ export const BaseSecuritiesSchema = z.object({
     password_changed_at: z.date(),
     reset_token: z.string().nullable(),
     reset_expires_at: z.date().nullable(),
+    logged_in: z.boolean(),
     last_login_at: z.date().nullable(),
     created_at: z.date(),
     updated_at: z.date(),
@@ -175,6 +177,7 @@ export const BaseSecuritiesSchema = z.object({
  * | `mfa_secret` | `TEXT` | ✅ Yes | `NULL` | Encrypted TOTP secret |
  * | `recovery_codes` | `TEXT[]` | ❌ No | `{}` | Encrypted backup codes |
  * | `reset_token` | `TEXT` | ✅ Yes | `NULL` | **Unique** password reset token |
+ * | `logged_in` | `BOOLEAN` | ❌ No | `false` | Indicates if the user is currently logged in |
  * | `last_login_at` | `TIMESTAMPTZ`| ✅ Yes | `NULL` | Last successful session |
  */
 export type Security = z.infer<typeof BaseSecuritiesSchema>;

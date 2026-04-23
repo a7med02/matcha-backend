@@ -6,6 +6,8 @@ import { _argon2 } from "../../../lib/argon2";
 import { db } from "../../../lib/db/orm/client";
 import { AppError } from "../../../common/errors/app-error";
 import { AuthTokenPayload, AuthUser, PublicUser } from "../auth.types";
+import { redis } from "../../../lib/redis/client";
+import { ONE_HOUR_IN_SECONDS } from "../../../lib/utils/times";
 
 interface QueryResult {
     id: string;
@@ -20,6 +22,7 @@ interface QueryResult {
     security: {
         id: string;
         password_hash: string;
+        logged_in: boolean;
     };
 }
 
@@ -42,7 +45,7 @@ const checkUserExists = async (email: string): Promise<QueryResult> => {
                 select: ["id", "first_name", "last_name", "username"],
             },
             security: {
-                select: ["id", "password_hash"],
+                select: ["id", "password_hash", "logged_in"],
             },
         },
     });
@@ -121,4 +124,15 @@ const loginUser = async (userId: string, email: string): Promise<LoginTokens> =>
     }
 };
 
-export { checkUserExists, verifyPassword, loginUser };
+const cacheUserSessionsCount = async (userId: string): Promise<void> => {
+    try {
+        await redis.set(`auth:session:${userId}:count`, "1", {
+            NX: true,
+            EX: ONE_HOUR_IN_SECONDS,
+        });
+    } catch (error) {
+        throw error;
+    }
+};
+
+export { checkUserExists, verifyPassword, loginUser, cacheUserSessionsCount };

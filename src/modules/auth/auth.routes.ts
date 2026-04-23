@@ -23,6 +23,7 @@ authRoutes.post(
     asyncHandler(authController.resendVerification)
 );
 authRoutes.post("/login", validateBody(loginSchema), asyncHandler(authController.login));
+
 // authRoutes.get("/me", authMiddleware, asyncHandler(authController.me));
 
 export { authRoutes };

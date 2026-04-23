@@ -106,4 +106,17 @@ export class JWT {
             });
         }
     }
+
+    public static decodeToken(token: string): string | JwtPayload | null {
+        try {
+            return jwt.decode(token, { complete: false });
+        } catch (error) {
+            throw new AppError({
+                statusCode: StatusCodes.BAD_REQUEST,
+                code: "AUTH_DECODE_FAILED",
+                message: "Failed to decode token",
+                details: error instanceof Error ? error.message : error,
+            });
+        }
+    }
 }

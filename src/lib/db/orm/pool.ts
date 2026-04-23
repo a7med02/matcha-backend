@@ -71,10 +71,3 @@ export const shutdownPool = async () => {
         logger.warn("Shutdown called, but no active pool was found.");
     }
 };
-
-const handleExit = async () => {
-    await shutdownPool();
-};
-
-process.on("SIGINT", handleExit);
-process.on("SIGTERM", handleExit);

@@ -1,0 +1,2 @@
+TODO: Keep track of user sessions count to max 5 per user.
+TODO: Add fingerpinting logic and rate limitting

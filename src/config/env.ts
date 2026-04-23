@@ -103,12 +103,27 @@ const envSchema = z.object({
     VERIFICATION_RESEND_COOLDOWN_4_MINUTES: z.coerce.number().int().min(0).default(60), // 1 hour
     EMAIL_LOCK_DURATION_MINUTES: z.coerce.number().int().min(0).default(1440), // 24 hours
 
+    // For Rate Limiting
+    MAX_SESSIONS_PER_USER: z.coerce.number().int().min(1).default(5),
+
     // Postgres Database variables
     MAX_DB_POOL_SIZE: z.coerce.number().int().min(1).default(20),
     IDLE_TIMEOUT_MILLIS: z.coerce.number().int().min(0).default(60_000),
     CONNECTION_TIMEOUT_MILLIS: z.coerce.number().int().min(0).default(2_000),
 
     DATABASE_URL: z.string().min(1),
+
+    // Redis variables
+    REDIS_HOST: z.string().min(1).default("localhost"),
+    REDIS_PORT: z.coerce.number().int().min(1).default(6379),
+    REDIS_PASSWORD: z
+        .string()
+        .optional()
+        .transform((value) => {
+            const trimmed = value?.trim();
+            return trimmed && trimmed.length > 0 ? trimmed : undefined;
+        }),
+    REDIS_CONNECTION_TIMEOUT_MILLIS: z.coerce.number().int().min(0).default(10_000),
 });
 
 const parsed = envSchema.safeParse({

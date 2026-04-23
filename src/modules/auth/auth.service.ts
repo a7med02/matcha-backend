@@ -12,7 +12,7 @@ import { checkEmailDoesNotExists, createRecords } from "./helper/register";
 import { RegisterInput, ResendVerificationInput, VerifyEmailInput } from "./auth.validation";
 import { attemptCodeVerification, markEmailAsVerified } from "./helper/verify-email";
 import { resendVerificationCode } from "./helper/resend-code";
-import { checkUserExists, loginUser, verifyPassword } from "./helper/login";
+import { cacheUserSessionsCount, checkUserExists, loginUser, verifyPassword } from "./helper/login";
 import { AuthTokens } from "../../lib/jwt";
 
 class AuthService {
@@ -99,7 +99,18 @@ class AuthService {
 
             await verifyPassword(input.password, result);
 
+            if (result.security.logged_in === true) {
+                logger.debug(`Login attempt for already logged in user: ${input.email}`);
+                throw new AppError({
+                    statusCode: StatusCodes.BAD_REQUEST,
+                    code: "AUTH_ALREADY_LOGGED_IN",
+                    message: "User is already logged in.",
+                });
+            }
+
             const loginTokens = await loginUser(result.user.id, result.email);
+
+            await cacheUserSessionsCount(result.user.id);
 
             return {
                 message: "Login successful",

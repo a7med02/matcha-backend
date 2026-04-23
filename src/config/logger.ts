@@ -1,13 +1,14 @@
 import { inspect } from "node:util";
 import { env } from "../config/env";
 
-type LogLevel = "info" | "warn" | "error";
+type LogLevel = "debug" | "info" | "warn" | "error";
 type LogMeta = Record<string, unknown> & { err?: Error };
 
 const isDev = env.NODE_ENV === "development";
 
 // ANSI escape codes for terminal colors
 const colors = {
+    debug: "\x1b[34m", // Blue
     info: "\x1b[36m", // Cyan
     warn: "\x1b[33m", // Yellow
     error: "\x1b[31m", // Red
@@ -86,6 +87,7 @@ const write = (level: LogLevel, message: string, meta?: LogMeta): void => {
 };
 
 export const logger = {
+    debug: (message: string, meta?: LogMeta): void => write("debug", message, meta),
     info: (message: string, meta?: LogMeta): void => write("info", message, meta),
     warn: (message: string, meta?: LogMeta): void => write("warn", message, meta),
     error: (message: string, meta?: LogMeta): void => write("error", message, meta),

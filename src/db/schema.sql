@@ -59,6 +59,7 @@ CREATE TABLE securities (
         (reset_token IS NOT NULL AND reset_expires_at IS NOT NULL)
     ),
 
+    logged_in BOOLEAN NOT NULL DEFAULT false,
     last_login_at TIMESTAMPTZ DEFAULT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

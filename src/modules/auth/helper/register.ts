@@ -7,6 +7,7 @@ import { AppError } from "../../../common/errors/app-error";
 import { generateEmailVerificationCode } from "../../../lib/email-verification";
 import { env } from "../../../config/env";
 import { DB_Error } from "../../../lib/db/orm/operations/db-error";
+import { redis } from "../../../lib/redis/client";
 
 /**
  * Checks if the provided email already exists in the database.

@@ -1,27 +1,59 @@
 import { app } from "./app";
 import { env } from "./config/env";
 import { logger } from "./config/logger";
+import { getPool, shutdownPool } from "./lib/db/orm/pool";
+import { redis } from "./lib/redis/client";
+import { sleepWithExit } from "./lib/utils/sleep";
 
-const server = app.listen(env.PORT, () => {
-    logger.info("HTTP server started", {
-        env: env.NODE_ENV,
-        port: env.PORT,
+const initializeServer = async (): Promise<void> => {
+    // Initialize any necessary resources here (e.g., database connections, Redis client)
+    try {
+        getPool(); // Ensure the database pool is initialized
+        await redis.connect();
+    } catch (error) {
+        logger.error("Failed to initialize Redis client", { error });
+        sleepWithExit(200, 1); // Wait for logs to flush before exiting
+    }
+};
+
+let server: ReturnType<typeof app.listen>;
+
+const bootstrap = async (): Promise<void> => {
+    await initializeServer();
+
+    server = app.listen(env.PORT, () => {
+        logger.info("HTTP server started", {
+            env: env.NODE_ENV,
+            port: env.PORT,
+        });
     });
-});
+};
 
-const shutdown = (signal: string): void => {
+let isShuttingDown = false;
+
+const shutdown = async (signal: string): Promise<void> => {
+    if (isShuttingDown) {
+        return;
+    }
+    isShuttingDown = true;
+
     logger.info("Shutdown signal received", { signal });
+
+    await shutdownPool();
+    await redis.disconnect();
 
     server.close(() => {
         logger.info("HTTP server stopped");
-        process.exit(0);
+        sleepWithExit(200, 0); // Wait for logs to flush before exiting
     });
 
     setTimeout(() => {
         logger.error("Forced shutdown after timeout");
-        process.exit(1);
+        sleepWithExit(200, 1); // Wait for logs to flush before exiting
     }, 10_000).unref();
 };
 
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+void bootstrap();
