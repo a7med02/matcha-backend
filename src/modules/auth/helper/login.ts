@@ -1,13 +1,14 @@
 import { StatusCodes } from "http-status-codes";
 
-import { JWT } from "../../../lib/jwt";
+import { AuthTokens, JWT } from "../../../lib/jwt";
 import { CRYPTO } from "../../../lib/crypto";
 import { _argon2 } from "../../../lib/argon2";
 import { db } from "../../../lib/db/orm/client";
 import { AppError } from "../../../common/errors/app-error";
 import { AuthTokenPayload, AuthUser, PublicUser } from "../auth.types";
 import { redis } from "../../../lib/redis/client";
-import { ONE_HOUR_IN_SECONDS } from "../../../lib/utils/times";
+import { ONE_WEEK_IN_SECONDS } from "../../../lib/utils/times";
+import { Session } from "../../../lib/db/orm/db-types";
 
 interface QueryResult {
     id: string;
@@ -33,13 +34,11 @@ interface QueryResult {
  * @throws {AppError} If the user does not exist or is not verified, an AppError with appropriate status code and message is thrown
  */
 const checkUserExists = async (email: string): Promise<QueryResult> => {
-    const result = await db.emailAddresses.retrieval.findUnique({
-        options: {
-            where: {
-                email: email,
-            },
-            select: ["id", "email", "is_verified"],
+    const result = await db.emailAddresses.findUnique({
+        where: {
+            email: email,
         },
+        select: ["id", "email", "is_verified"],
         include: {
             user: {
                 select: ["id", "first_name", "last_name", "username"],
@@ -89,9 +88,111 @@ const verifyPassword = async (password: string, result: QueryResult): Promise<bo
     return true;
 };
 
+const getSessionsCount = async (userId: string): Promise<number> => {
+    const cachedSessionsCount = await redis.get(`auth:sessions:${userId}:count`);
+    if (cachedSessionsCount) {
+        return parseInt(cachedSessionsCount);
+    }
+    const sessionsCount = await db.sessions.count({
+        options: {
+            where: {
+                user_id: userId,
+            },
+        },
+    });
+    return sessionsCount;
+};
+
+type SessionInfo = {
+    sessionId: string;
+    expiresAt: Date;
+};
+
+const getSessionExpiry = async (userId: string): Promise<SessionInfo | null> => {
+    const cachedExpiry = await redis.get(`auth:sessions:${userId}:oldest_expiry`);
+    if (cachedExpiry) {
+        const [sessionId, expiresAt] = cachedExpiry.split(":");
+        return { sessionId, expiresAt: new Date(expiresAt) };
+    }
+    const session = await db.sessions.findFirst({
+        where: {
+            user_id: userId,
+        },
+        orderBy: {
+            expires_at: "ASC",
+        },
+        select: ["id", "expires_at"],
+    });
+    if (session && session.expires_at > new Date()) {
+        await cacheUserSessionExpiry(session.id!, userId, session.expires_at);
+    }
+    return session ? { sessionId: session.id, expiresAt: session.expires_at } : null;
+};
+
+const cacheUserSessionsCount = async (userId: string): Promise<void> => {
+    try {
+        await redis.incr(`auth:sessions:${userId}:count`);
+        await redis.expire(`auth:sessions:${userId}:count`, ONE_WEEK_IN_SECONDS);
+    } catch (error) {
+        throw error;
+    }
+};
+
+const cacheUserSessionExpiry = async (
+    sessionId: string,
+    userId: string,
+    expiresAt: Date
+): Promise<void> => {
+    try {
+        const ttlSeconds = Math.ceil((expiresAt.getTime() - Date.now()) / 1000);
+        await redis.set(
+            `auth:sessions:${userId}:oldest_expiry`,
+            `${sessionId}:${expiresAt.toISOString()}`,
+            {
+                EX: ttlSeconds,
+            }
+        );
+    } catch (error) {
+        throw error;
+    }
+};
+
+const createSession = async (
+    userId: string,
+    clientToken: string,
+    expiresAt: Date
+): Promise<Partial<Session>> => {
+    try {
+        return await db.sessions.create({
+            data: {
+                user_id: userId,
+                session_token: CRYPTO.encrypt(clientToken),
+                expires_at: expiresAt,
+            },
+            select: ["id"],
+        });
+    } catch (error) {
+        throw error;
+    }
+};
+
+const deleteSession = async (userId: string, sessionId: string): Promise<void> => {
+    try {
+        await redis.del(`auth:sessions:${userId}:oldest_expiry`);
+        await redis.decr(`auth:sessions:${userId}:count`);
+        await db.sessions.delete({
+            where: {
+                id: sessionId,
+            },
+        });
+    } catch (error) {
+        throw error;
+    }
+};
+
 export type LoginTokens = {
-    accessToken: string;
-    refreshToken: string;
+    sessionToken: string;
+    clientToken: string;
 };
 
 /**
@@ -107,32 +208,44 @@ const loginUser = async (userId: string, email: string): Promise<LoginTokens> =>
     };
 
     try {
-        const tokens = await JWT.generateTokens(userId, payload);
+        // Check if the user already has MAX active sessions.
+        const sessionsCount = await getSessionsCount(userId);
+        const oldestSession = await getSessionExpiry(userId);
+        const oldestSessionExpired = oldestSession
+            ? oldestSession.expiresAt.getTime() <= Date.now()
+            : false;
 
-        await db.sessions.persist.create({
-            data: {
-                user_id: userId,
-                session_token: CRYPTO.encrypt(tokens.refreshToken),
-                expires_at: new Date(Date.now() + JWT.getRefreshTokenExpiryMs()),
-            },
-            select: ["id"],
-        });
+        // If Max sessions reached, and oldest session is expired, create a new session.
+        if (sessionsCount >= 5) {
+            if (oldestSession && oldestSessionExpired) {
+                await deleteSession(userId, oldestSession.sessionId);
+            } else {
+                throw new AppError({
+                    statusCode: StatusCodes.TOO_MANY_REQUESTS,
+                    code: "AUTH_TOO_MANY_SESSIONS",
+                    message: "Too many active sessions.",
+                });
+            }
+        }
 
-        return tokens;
+        const tokens: AuthTokens = await JWT.generateTokens(userId, payload);
+        const expiresAt: Date = new Date(Date.now() + JWT.getClientTokenExpiryMs());
+
+        const session = await createSession(userId, tokens.clientToken, expiresAt);
+
+        // We cache the sessions count and expiry for faster access in other parts.
+        await cacheUserSessionsCount(userId);
+        if (!oldestSessionExpired) {
+            await cacheUserSessionExpiry(session.id!, userId, expiresAt);
+        }
+
+        return {
+            sessionToken: tokens.sessionToken,
+            clientToken: tokens.clientToken,
+        };
     } catch (error) {
         throw error;
     }
 };
 
-const cacheUserSessionsCount = async (userId: string): Promise<void> => {
-    try {
-        await redis.set(`auth:session:${userId}:count`, "1", {
-            NX: true,
-            EX: ONE_HOUR_IN_SECONDS,
-        });
-    } catch (error) {
-        throw error;
-    }
-};
-
-export { checkUserExists, verifyPassword, loginUser, cacheUserSessionsCount };
+export { checkUserExists, verifyPassword, loginUser };

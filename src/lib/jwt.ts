@@ -3,30 +3,31 @@ import jwt, { SignOptions, JwtPayload } from "jsonwebtoken";
 import { env } from "../config/env";
 import { AppError } from "../common/errors/app-error";
 import { StatusCodes } from "http-status-codes";
-import { db } from "./db/orm/client";
 import { CRYPTO } from "./crypto";
+import { AuthTokenPayload } from "../modules/auth/auth.types";
 
 export interface AuthTokens {
-    accessToken: string;
-    refreshToken: string;
+    sessionToken: string;
+    clientToken: string;
+    refreshJWTID: string;
 }
 
 export class JWT {
     private static readonly privateKey: string = env.JWT_PRIVATE_KEY.replace(/\\n/g, "\n");
     private static readonly publicKey: string = env.JWT_PUBLIC_KEY.replace(/\\n/g, "\n");
     private static readonly accessExpiresIn: SignOptions["expiresIn"] =
-        env.JWT_ACCESS_EXPIRES_IN as SignOptions["expiresIn"];
+        env.JWT_SESSION_EXPIRES_IN as SignOptions["expiresIn"];
     private static readonly refreshExpiresIn: SignOptions["expiresIn"] =
-        env.JWT_REFRESH_EXPIRES_IN as SignOptions["expiresIn"];
-    private static readonly refreshExpirationSeconds: number = env.JWT_REFRESH_EXPIRATION_SECONDS;
+        env.JWT_CLIENT_EXPIRES_IN as SignOptions["expiresIn"];
+    private static readonly refreshExpirationSeconds: number = env.JWT_CLIENT_EXPIRATION_SECONDS;
     private static readonly algorithm: jwt.Algorithm = "RS256";
     private static readonly issuer: string = env.JWT_ISSUER || "http://localhost:3000";
     private static readonly audience: string = env.JWT_AUDIENCE || "http://localhost:5173";
 
     /**
-     * @returns The refresh token expiration time in milliseconds. Defaults to 7 days if not set or invalid.
+     * @returns The client token expiration time in milliseconds. Defaults to 7 days if not set or invalid.
      */
-    public static getRefreshTokenExpiryMs(): number {
+    public static getClientTokenExpiryMs(): number {
         if (typeof this.refreshExpirationSeconds === "number") {
             return this.refreshExpirationSeconds * 1_000;
         }
@@ -41,7 +42,10 @@ export class JWT {
      * @returns An object containing the generated access token and refresh token
      * @throws AppError with status 500 if token generation fails
      */
-    public static async generateTokens(userId: string, payload: object): Promise<AuthTokens> {
+    public static async generateTokens(
+        userId: string,
+        payload: AuthTokenPayload
+    ): Promise<AuthTokens> {
         const baseOptions: SignOptions = {
             algorithm: this.algorithm,
             issuer: this.issuer, // Sets the 'iss' claim
@@ -50,29 +54,24 @@ export class JWT {
         };
 
         try {
-            const accessToken = jwt.sign(payload, this.privateKey, {
+            const sessionToken = jwt.sign(payload, this.privateKey, {
                 ...baseOptions,
                 expiresIn: this.accessExpiresIn,
                 jwtid: crypto.randomUUID(), // Sets a unique 'jti' claim
             });
 
-            const refreshToken = jwt.sign({}, this.privateKey, {
+            const clientJWTID = crypto.randomUUID();
+            const clientToken = jwt.sign(payload, this.privateKey, {
                 ...baseOptions,
                 expiresIn: this.refreshExpiresIn,
-                jwtid: crypto.randomUUID(), // Sets a unique 'jti' claim
+                jwtid: clientJWTID, // Sets a unique 'jti' claim
             });
 
-            // TODO: remove this db call outside of this method and move it to the auth service, this is just a temporary solution to store the refresh token in the database for now, we will implement a proper session management system later
-            const result = await db.sessions.persist.create({
-                data: {
-                    user_id: userId,
-                    session_token: CRYPTO.encrypt(refreshToken),
-                    expires_at: new Date(Date.now() + this.getRefreshTokenExpiryMs()),
-                },
-                select: ["id"],
-            });
-
-            return { accessToken, refreshToken };
+            return {
+                sessionToken: sessionToken,
+                clientToken: clientToken,
+                refreshJWTID: clientJWTID,
+            };
         } catch (error) {
             throw new AppError({
                 statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
@@ -89,13 +88,13 @@ export class JWT {
      * @returns The decoded payload if the token is valid, or null if invalid/expired
      * @throws AppError with status 401 if the token is invalid or expired
      */
-    public static verifyToken(token: string): string | JwtPayload | null {
+    public static verifyToken(token: string): JwtPayload | null {
         try {
             return jwt.verify(token, this.publicKey, {
                 algorithms: [this.algorithm],
                 issuer: this.issuer, // Verifies the 'iss' claim
                 audience: this.audience, // Verifies the 'aud' claim
-            });
+            }) as JwtPayload | null;
         } catch (error) {
             // e.g., TokenExpiredError, JsonWebTokenError (if 'iss'/'aud' mismatch)
             throw new AppError({
@@ -107,7 +106,28 @@ export class JWT {
         }
     }
 
-    public static decodeToken(token: string): string | JwtPayload | null {
+    public static refreshSession(userId: string, payload: AuthTokenPayload): string {
+        try {
+            const newSessionToken = jwt.sign(payload, this.privateKey, {
+                algorithm: this.algorithm,
+                issuer: this.issuer,
+                audience: this.audience,
+                subject: userId,
+                expiresIn: this.accessExpiresIn,
+                jwtid: crypto.randomUUID(),
+            });
+            return newSessionToken;
+        } catch (error) {
+            throw new AppError({
+                statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+                code: "AUTH_TOKEN_REFRESH_FAILED",
+                message: "Failed to refresh token",
+                details: error instanceof Error ? error.message : error,
+            });
+        }
+    }
+
+    public static decode(token: string): string | JwtPayload | null {
         try {
             return jwt.decode(token, { complete: false });
         } catch (error) {

@@ -1,14 +1,18 @@
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import express, { type Request } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import morgan from "morgan";
+
+import { env } from "./config/env";
+import { logger } from "./config/logger";
+
 import { apiRouter } from "./api";
 import { notFoundMiddleware } from "./common/middleware/not-found.middleware";
 import { errorHandlerMiddleware } from "./common/middleware/error-handler.middleware";
 import { requestIdMiddleware } from "./common/middleware/request-id.middleware";
-import { env } from "./config/env";
-import { logger } from "./config/logger";
+import { browserCheckMiddleware } from "./common/middleware/browser.middleware";
 
 const app = express();
 
@@ -44,6 +48,8 @@ app.use(
     })
 );
 
+app.use(browserCheckMiddleware);
+app.use(cookieParser());
 app.use(env.API_PREFIX, apiRouter);
 
 app.use(notFoundMiddleware);

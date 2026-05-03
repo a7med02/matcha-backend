@@ -33,6 +33,12 @@ export type WhereClause<T> = {
  * Follows Unionized Mapped Type pattern
  * Result for User: { id: string } | { username: string }
  */
-export type UniqueWhere<T, K extends keyof T> = {
-    [P in K]: { [Q in P]: T[Q] };
-}[K];
+export type UniqueWhere<T, K extends keyof T, C extends readonly (keyof T)[] = never> =
+    | {
+          [P in K]: { [Q in P]: T[Q] };
+      }[K]
+    | (C extends readonly (keyof T)[]
+          ? {
+                [P in C[number]]: T[P];
+            }
+          : never);

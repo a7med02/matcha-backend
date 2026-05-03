@@ -69,7 +69,11 @@ CREATE TABLE securities (
 CREATE TABLE sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    session_token TEXT NOT NULL UNIQUE, -- should be encrypted at the application level
+    session_token TEXT NOT NULL, -- should be encrypted at the application level
+
+    -- We create the composite unique constraint
+    CONSTRAINT unique_user_session UNIQUE (user_id, session_token),
+
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

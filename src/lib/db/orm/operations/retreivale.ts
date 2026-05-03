@@ -7,11 +7,11 @@ import { RelationsMap } from "../base-repository";
 import { getTableFields } from "../db-types";
 
 interface FindOptions<T> {
-    select?: (keyof T)[];
     where?: WhereClause<T>;
     orderBy?: { [K in keyof T]?: "ASC" | "DESC" };
     limit?: number;
     offset?: number;
+    select?: (keyof T)[];
 }
 
 type IncludeOptions<R> = {
@@ -36,10 +36,12 @@ export class BaseRetrievalOperationsRepository<
     T,
     U extends keyof T,
     R extends Record<string, any> = {},
+    C extends readonly (keyof T)[] = never,
 > extends InterfaceRepository<T> {
     constructor(
         tableName: string,
-        public relations: RelationsMap<T> = {}
+        public relations: RelationsMap<T> = {},
+        private compositeUniqueKeys: ReadonlyArray<C> = []
     ) {
         super(tableName);
     }
@@ -80,29 +82,38 @@ export class BaseRetrievalOperationsRepository<
      * @returns
      */
     async findUnique<I extends IncludeOptions<R>>({
-        options,
+        where,
+        select,
         include,
     }: {
-        options: {
-            where: UniqueWhere<T, U>; // Enforces only UNIQUE fields
-            select?: (keyof T)[];
-        };
+        where: UniqueWhere<T, U, C>; // Enforces only UNIQUE fields
+        select?: (keyof T)[];
         include?: I;
     }): Promise<WithIncludes<T, R, I> | null> {
         // 1. Cast for safe access and extract the key/value
-        const where = options.where as Record<string, any>;
-        const keys = Object.keys(options.where);
+        const whereRecord = where as Record<string, any>;
+        const keys = Object.keys(whereRecord) as (keyof T)[];
 
         if (keys.length === 0) {
-            throw new Error("findUnique requires exactly one unique key-value pair.");
+            throw new Error("findUnique requires at least one unique key-value pair.");
         }
 
-        const clause = keys[0];
-        const value = where[clause];
+        const compositeKeySet = this.compositeUniqueKeys.find(
+            (keySet) => keySet.length === keys.length && keySet.every((key) => keys.includes(key))
+        );
+
+        if (keys.length > 1 && !compositeKeySet) {
+            throw new Error(
+                "findUnique requires exactly one unique key or a valid composite unique key set."
+            );
+        }
+
+        const orderedKeys = compositeKeySet ? [...compositeKeySet] : keys;
+        const values = orderedKeys.map((key) => whereRecord[String(key)]);
 
         // 1. Build Select Clause
-        let selectClause = options.select
-            ? options.select.map((field) => `${this.tableName}.${String(field)}`).join(", ")
+        let selectClause = select
+            ? select.map((field) => `${this.tableName}.${String(field)}`).join(", ")
             : `${this.tableName}.*`;
 
         let joinClause = "";
@@ -141,11 +152,14 @@ export class BaseRetrievalOperationsRepository<
 
         // 2. Build the parameterized SQL query
         //! we use parameterized queries to prevent SQL injection attacks
-        const sql = `SELECT ${selectClause} FROM ${this.tableName}${joinClause} WHERE ${this.tableName}.${clause} = $1 LIMIT 2;`;
+        const whereClause = orderedKeys
+            .map((key, index) => `${this.tableName}.${String(key)} = $${index + 1}`)
+            .join(" AND ");
+        const sql = `SELECT ${selectClause} FROM ${this.tableName}${joinClause} WHERE ${whereClause} LIMIT 2;`;
 
         try {
             // 3. Execute the query and return the result
-            const result = await this.query(sql, [value]);
+            const result = await this.query(sql, values);
 
             if (result.rowCount && result.rowCount === 0) {
                 return null; // No record found
@@ -172,8 +186,7 @@ export class BaseRetrievalOperationsRepository<
      * @returns A promise that resolves to the found record or null if no record is found. Throws an error if a database error occurs during the query.
      * @throws {DB_Error} If a database error occurs during the query, a DB_Error is thrown with details about the error.
      */
-    async findFirst({ option }: { option: Omit<FindOptions<T>, "limit"> }) {
-        const { select, where, orderBy, offset } = option;
+    async findFirst({ where, orderBy, offset, select }: Omit<FindOptions<T>, "limit">) {
         const values: any[] = [];
 
         const columns = select ? select.join(", ") : "*";
@@ -215,8 +228,7 @@ export class BaseRetrievalOperationsRepository<
      * @returns A promise that resolves to an array of found records. Throws an error if a database error occurs during the query.
      * @throws {DB_Error} If a database error occurs during the query, a DB_Error is thrown with details about the error.
      */
-    async findMany({ options = {} }: { options: FindOptions<T> }) {
-        const { select, where, orderBy, limit, offset } = options;
+    async findMany({ where, orderBy, limit, offset, select }: FindOptions<T>) {
         const values: any[] = [];
 
         // 1. SELECT Column logic

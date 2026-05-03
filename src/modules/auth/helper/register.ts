@@ -4,7 +4,7 @@ import { _argon2 } from "../../../lib/argon2";
 import { db } from "../../../lib/db/orm/client";
 import { User } from "../../../lib/db/orm/db-types";
 import { AppError } from "../../../common/errors/app-error";
-import { generateEmailVerificationCode } from "../../../lib/email-verification";
+import { generateEmailVerificationCode } from "../../../lib/email-verification-code";
 import { env } from "../../../config/env";
 import { DB_Error } from "../../../lib/db/orm/operations/db-error";
 import { redis } from "../../../lib/redis/client";
@@ -15,11 +15,9 @@ import { redis } from "../../../lib/redis/client";
  * @throws {AppError} If the email already exists, an AppError with status code 409 is thrown
  */
 const checkEmailDoesNotExists = async (email: string) => {
-    const existingUser = await db.emailAddresses.retrieval.findUnique({
-        options: {
-            where: {
-                email: email,
-            },
+    const existingUser = await db.emailAddresses.findUnique({
+        where: {
+            email: email,
         },
     });
     if (existingUser) {
@@ -59,7 +57,7 @@ const createRecords = async (
     try {
         const passwordHash = await _argon2.hash(password);
 
-        const user = await db.users.persist.create({
+        const user = await db.users.create({
             data: {
                 first_name: firstName,
                 last_name: lastName,
@@ -75,7 +73,7 @@ const createRecords = async (
             });
         }
 
-        const emailAddress = await db.emailAddresses.persist.create({
+        const emailAddress = await db.emailAddresses.create({
             data: {
                 user_id: user.id,
                 email: email,
@@ -89,12 +87,9 @@ const createRecords = async (
         });
 
         if (!emailAddress) {
-            await db.users.mutation.delete({
-                options: {
-                    // Rollback user creation
-                    where: {
-                        id: user.id,
-                    },
+            await db.users.delete({
+                where: {
+                    id: user.id,
                 },
             });
             throw new AppError({
@@ -104,7 +99,7 @@ const createRecords = async (
             });
         }
 
-        const security = await db.securities.persist.create({
+        const security = await db.securities.create({
             data: {
                 user_id: user.id,
                 password_hash: passwordHash,
@@ -112,20 +107,14 @@ const createRecords = async (
         });
 
         if (!security) {
-            await db.users.mutation.delete({
-                options: {
-                    // Rollback user creation
-                    where: {
-                        id: user.id,
-                    },
+            await db.users.delete({
+                where: {
+                    id: user.id,
                 },
             });
-            await db.emailAddresses.mutation.delete({
-                options: {
-                    // Rollback email address creation
-                    where: {
-                        user_id: user.id,
-                    },
+            await db.emailAddresses.delete({
+                where: {
+                    user_id: user.id,
                 },
             });
             throw new AppError({

@@ -245,7 +245,8 @@ export const BaseSessionsSchema = z.object({
  * | `updated_at` | `TIMESTAMPTZ`| ❌ No | `now()` | Record modification time |
  */
 export type Session = z.infer<typeof BaseSessionsSchema>;
-export type SessionUniqueFields = "id" | "user_id" | "session_token";
+export type SessionUniqueFields = "id";
+export type SessionCompositeUniqueFields = ["user_id", "session_token"];
 
 // -------------- Other functions --------------
 

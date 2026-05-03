@@ -11,6 +11,7 @@ import {
     SecurityUniqueFields,
     Session,
     SessionsTableName,
+    SessionCompositeUniqueFields,
     SessionUniqueFields,
     User,
     UsersTableName,
@@ -84,22 +85,27 @@ export const db = {
     sessions: new BaseRepository<
         Session,
         SessionUniqueFields,
-        { user: User; emailAddress: EmailAddress; security: Security }
-    >(SessionsTableName, {
-        user: {
-            table: UsersTableName,
-            localKey: "user_id",
-            foreignKey: "id",
+        { user: User; emailAddress: EmailAddress; security: Security },
+        SessionCompositeUniqueFields
+    >(
+        SessionsTableName,
+        {
+            user: {
+                table: UsersTableName,
+                localKey: "user_id",
+                foreignKey: "id",
+            },
+            security: {
+                table: SecuritiesTableName,
+                localKey: "user_id",
+                foreignKey: "user_id",
+            },
+            emailAddress: {
+                table: EmailAddressesTableName,
+                localKey: "user_id",
+                foreignKey: "user_id",
+            },
         },
-        security: {
-            table: SecuritiesTableName,
-            localKey: "user_id",
-            foreignKey: "user_id",
-        },
-        emailAddress: {
-            table: EmailAddressesTableName,
-            localKey: "user_id",
-            foreignKey: "user_id",
-        },
-    }),
+        [["user_id", "session_token"]]
+    ),
 };

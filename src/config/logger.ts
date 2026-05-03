@@ -1,7 +1,20 @@
 import { inspect } from "node:util";
 import { env } from "../config/env";
 
+const LOG_LEVELS: Record<string, number> = {
+    debug: 1,
+    info: 2,
+    warn: 3,
+    error: 4,
+};
+
 type LogLevel = "debug" | "info" | "warn" | "error";
+
+const shouldLog = (level: LogLevel): boolean => {
+    const configuredLevel = env.LOG_LEVEL || "info";
+    return LOG_LEVELS[level] >= LOG_LEVELS[configuredLevel];
+};
+
 type LogMeta = Record<string, unknown> & { err?: Error };
 
 const isDev = env.NODE_ENV === "development";
@@ -36,6 +49,10 @@ const serializeMeta = (meta?: LogMeta) => {
 };
 
 const write = (level: LogLevel, message: string, meta?: LogMeta): void => {
+    if (!shouldLog(level)) {
+        return;
+    }
+
     const timestamp = new Date().toISOString();
 
     // ---------------------------------------------------------

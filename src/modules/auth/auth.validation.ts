@@ -2,6 +2,12 @@ import { z } from "zod";
 
 import { env } from "../../config/env";
 
+const jwksJSONSchema = z.object({
+    clientSecret: z.string(),
+});
+
+type jwksJSONInput = z.infer<typeof jwksJSONSchema>;
+
 const registerSchema = z.object({
     firstName: z
         .string()
@@ -60,5 +66,5 @@ const loginSchema = z.object({
 
 type LoginInput = z.infer<typeof loginSchema>;
 
-export type { RegisterInput, VerifyEmailInput, ResendVerificationInput, LoginInput };
-export { registerSchema, verifyEmailSchema, resendVerificationSchema, loginSchema };
+export type { RegisterInput, VerifyEmailInput, ResendVerificationInput, LoginInput, jwksJSONInput };
+export { registerSchema, verifyEmailSchema, resendVerificationSchema, loginSchema, jwksJSONSchema };

@@ -18,8 +18,22 @@ const initializeServer = async (): Promise<void> => {
 
 let server: ReturnType<typeof app.listen>;
 
+const setPublicKeyAccessPassword = async (): Promise<void> => {
+    if (!env.JWT_PUBLIC_KEY) {
+        logger.fatal("JWT Public Key not found.");
+    }
+    try {
+        await redis.set(env.JWT_CLIENT_ACCESS_TO_PUBLIC_KEY_NAME, env.JWT_PUBLIC_KEY);
+        logger.info("JWT Public Key set in Redis successfully.");
+    } catch (error) {
+        logger.error("Failed to set JWT Public Key in Redis.");
+        sleepWithExit(200, 1); // Wait for logs to flush before exiting
+    }
+};
+
 const bootstrap = async (): Promise<void> => {
     await initializeServer();
+    await setPublicKeyAccessPassword();
 
     server = app.listen(env.PORT, () => {
         logger.info("HTTP server started", {

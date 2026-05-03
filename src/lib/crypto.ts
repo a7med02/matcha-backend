@@ -46,7 +46,7 @@ export class CRYPTO {
 
         // Format: version:iv:authTag:ciphertext
         // authTag to ensure non-tampering of the ciphertext, especially important for GCM mode.
-        return `${this.activeKeyVersion}:${iv.toString("base64")}:${authTag.toString("base64")}:${encrypted}`;
+        return `v${this.activeKeyVersion}:${iv.toString("base64")}:${authTag.toString("base64")}:${encrypted}`;
     }
 
     /**
@@ -78,7 +78,7 @@ export class CRYPTO {
         authTag = Buffer.from(parts[2], "base64");
         ciphertext = parts[3];
 
-        const keyVersion = parseInt(version, 10);
+        const keyVersion = parseInt(version.slice(1), 10); // Remove 'v' prefix
 
         if (keyVersion !== this.activeKeyVersion) {
             encryptionKey = this.getEncryptionKey(keyVersion);

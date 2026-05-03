@@ -46,18 +46,31 @@ const versionedKeys = getVersionedKeys();
 
 const envSchema = z.object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
     PORT: z.coerce.number().int().positive().default(3000),
     API_PREFIX: z.string().default("/api"),
+
+    AUTH_DOMAIN: z.url().default("http://localhost:3000"),
+    APP_DOMAIN: z.url().default("http://localhost:3000"),
+
     JWT_PRIVATE_KEY: z.string().min(32).default("dev_only_replace_with_private_key"),
     JWT_PUBLIC_KEY: z.string().min(32).default("dev_only_replace_with_public_key"),
-    JWT_ACCESS_EXPIRES_IN: z.string().default("3m"),
-    JWT_REFRESH_EXPIRES_IN: z.string().default("7d"), // 7 days
-    JWT_ACCESS_EXPIRATION_SECONDS: z.coerce.number().int().min(1).default(180), // 3 minutes
-    JWT_REFRESH_EXPIRATION_SECONDS: z.coerce.number().int().min(1).default(604800), // 7 days
-    JWT_ISSUER: z.string().default("http://localhost:3000"),
-    JWT_AUDIENCE: z.string().default("http://localhost:3000"),
-    ACCESS_TOKEN_PATH: z.string().default("/"),
-    REFRESH_TOKEN_PATH: z.string().default("/api/v1/auth/refresh"),
+    JWT_CLIENT_ACCESS_TO_PUBLIC_KEY_NAME: z.string().default("well-known:jwks.json"),
+    JWT_CLIENT_ACCESS_TO_PUBLIC_KEY_SECRET: z
+        .string()
+        .min(32)
+        .default("dev_only_replace_with_secret"),
+
+    JWT_SESSION_COOKIE_NAME: z.string().default("SESSTION_TOKEN"),
+    JWT_CLIENT_COOKIE_NAME: z.string().default("CLIENT_TOKEN"),
+    JWT_SESSION_EXPIRES_IN: z.string().default("3m"),
+    JWT_CLIENT_EXPIRES_IN: z.string().default("7d"), // 7 days
+    JWT_SESSION_EXPIRATION_SECONDS: z.coerce.number().int().min(1).default(180), // 3 minutes
+    JWT_CLIENT_EXPIRATION_SECONDS: z.coerce.number().int().min(1).default(604800), // 7 days
+    JWT_ISSUER: z.url().default("http://localhost:3000"),
+    JWT_AUDIENCE: z.url().default("http://localhost:3000"),
+    SESSTION_TOKEN_PATH: z.string().default("/"),
+    CLIENT_TOKEN_PATH: z.string().default("/api/v1/auth/refresh"),
 
     // For Crypto
     CRYPTO_ALGORITHM: z.string().default("aes-256-gcm"),

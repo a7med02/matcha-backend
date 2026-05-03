@@ -7,10 +7,12 @@ import { DatabaseError } from "pg";
 export class BaseMutationOperationsRepository<T> extends InterfaceRepository<T> {
     async update({
         data,
-        options,
+        where,
+        select,
     }: {
         data: Partial<T>;
-        options: { where: WhereClause<T>; select?: (keyof T)[] };
+        where: WhereClause<T>;
+        select?: (keyof T)[];
     }): Promise<Partial<T>[]> {
         const setClauses: string[] = [];
         const values: any[] = [];
@@ -24,12 +26,12 @@ export class BaseMutationOperationsRepository<T> extends InterfaceRepository<T> 
 
         // 2. WHERE placeholders (Starts where SET left off!)
         const { clauses: whereClause, values: whereValues } = this.processFilters(
-            options.where,
+            where,
             paramIndex // Pass current count!
         );
         values.push(...whereValues);
 
-        const returning = options.select ? options.select.join(", ") : "*";
+        const returning = select ? select.join(", ") : "*";
 
         // Build the final string
         const sql = `UPDATE ${this.tableName} SET ${setClauses.join(", ")} WHERE ${whereClause} RETURNING ${returning};`;
@@ -45,8 +47,8 @@ export class BaseMutationOperationsRepository<T> extends InterfaceRepository<T> 
         }
     }
 
-    async delete({ options }: { options: { where: WhereClause<T> } }): Promise<T[]> {
-        const { clauses, values } = this.processFilters(options.where);
+    async delete({ where }: { where: WhereClause<T> }): Promise<T[]> {
+        const { clauses, values } = this.processFilters(where);
 
         const sql = `DELETE FROM ${this.tableName} WHERE ${clauses} RETURNING *;`;
 

@@ -4,7 +4,7 @@ import { env } from "../../../config/env";
 import { db } from "../../../lib/db/orm/client";
 import { logger } from "../../../config/logger";
 import { AppError } from "../../../common/errors/app-error";
-import { generateEmailVerificationCode } from "../../../lib/email-verification";
+import { generateEmailVerificationCode } from "../../../lib/email-verification-code";
 import { formatTime } from "../../../lib/format-time";
 
 const COOLDOWN_PERIODS = [
@@ -16,11 +16,9 @@ const COOLDOWN_PERIODS = [
 
 export const resendVerificationCode = async (email: string): Promise<void> => {
     // 1. Retrieve the email record from the database
-    const emailRecord = await db.emailAddresses.retrieval.findUnique({
-        options: {
-            where: {
-                email: email,
-            },
+    const emailRecord = await db.emailAddresses.findUnique({
+        where: {
+            email: email,
         },
     });
     if (!emailRecord) {
@@ -57,14 +55,14 @@ export const resendVerificationCode = async (email: string): Promise<void> => {
         emailRecord.vcode_sent_at &&
         emailRecord.vcode_sent_at.getTime() +
             COOLDOWN_PERIODS[
-                Math.min(emailRecord.vcode_resend_count - 1, COOLDOWN_PERIODS.length - 1)
+                Math.min(emailRecord.vcode_resend_count! - 1, COOLDOWN_PERIODS.length - 1)
             ] >
             Date.now()
     ) {
         const waitMs =
             emailRecord.vcode_sent_at.getTime() +
             COOLDOWN_PERIODS[
-                Math.min(emailRecord.vcode_resend_count - 1, COOLDOWN_PERIODS.length - 1)
+                Math.min(emailRecord.vcode_resend_count! - 1, COOLDOWN_PERIODS.length - 1)
             ] -
             Date.now();
         throw new AppError({
@@ -77,17 +75,14 @@ export const resendVerificationCode = async (email: string): Promise<void> => {
     try {
         const newVerificationcode = generateEmailVerificationCode();
 
-        // TODO: remove this log before production, it's here for testing purposes
-        // TODO: and add AWS SES email sending functionality
+        // NOTE: I should remove this log before production, it's here for testing purposes
         logger.info("Resending verification code", {
             email: email,
             newVerificationcode: newVerificationcode,
         });
-        await db.emailAddresses.mutation.update({
-            options: {
-                where: {
-                    email: email,
-                },
+        await db.emailAddresses.update({
+            where: {
+                email: email,
             },
             data: {
                 verification_code: newVerificationcode,
@@ -95,11 +90,11 @@ export const resendVerificationCode = async (email: string): Promise<void> => {
                     Date.now() + env.VERIFICATION_CODE_EXPIRATION_MINUTES * 60 * 1000
                 ),
                 vcode_sent_at: new Date(),
-                vcode_resend_count: emailRecord.vcode_resend_count + 1,
+                vcode_resend_count: emailRecord.vcode_resend_count! + 1,
                 is_vcode_resend_locked:
-                    emailRecord.vcode_resend_count + 1 >= env.VERIFICATION_RESEND_LIMIT,
+                    emailRecord.vcode_resend_count! + 1 >= env.VERIFICATION_RESEND_LIMIT,
                 vcode_resend_lock_expires_at:
-                    emailRecord.vcode_resend_count + 1 >= env.VERIFICATION_RESEND_LIMIT
+                    emailRecord.vcode_resend_count! + 1 >= env.VERIFICATION_RESEND_LIMIT
                         ? new Date(
                               Date.now() + env.VERIFICATION_CODE_RESEND_LOCK_MINUTES * 60 * 1000
                           )

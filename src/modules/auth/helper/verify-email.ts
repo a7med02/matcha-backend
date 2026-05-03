@@ -2,15 +2,20 @@ import { StatusCodes } from "http-status-codes";
 import { AppError } from "../../../common/errors/app-error";
 import { db } from "../../../lib/db/orm/client";
 import { env } from "../../../config/env";
-import { EmailAddress } from "../../../lib/db/orm/db-types";
 
-const attemptCodeVerification = async (email: string, code: string): Promise<EmailAddress> => {
+type VerificationEmailRecord = {
+    id: string;
+    verification_attempts: number;
+};
+
+const attemptCodeVerification = async (
+    email: string,
+    code: string
+): Promise<VerificationEmailRecord> => {
     // 1. Retrieve the email record from the database
-    const emailRecord = await db.emailAddresses.retrieval.findUnique({
-        options: {
-            where: {
-                email: email,
-            },
+    const emailRecord = await db.emailAddresses.findUnique({
+        where: {
+            email: email,
         },
     });
     if (!emailRecord) {
@@ -42,14 +47,13 @@ const attemptCodeVerification = async (email: string, code: string): Promise<Ema
             message: "Email is already verified",
         });
     }
-
     console.log("Email verification code expires at: ", emailRecord.verification_expires_at);
     console.log("Current time: ", new Date());
 
     // 4. Check if the verification code has expired
     if (
         emailRecord.verification_code === code &&
-        emailRecord.verification_expires_at.getTime() <= Date.now()
+        emailRecord.verification_expires_at!.getTime() <= Date.now()
     ) {
         throw new AppError({
             statusCode: StatusCodes.BAD_REQUEST,
@@ -61,12 +65,10 @@ const attemptCodeVerification = async (email: string, code: string): Promise<Ema
     // 5. Verify the code and update attempts and lock status if necessary
     if (emailRecord.verification_code !== code) {
         // If the code is incorrect and attempts have reached the maximum, lock the email
-        if (emailRecord.verification_attempts + 1 >= env.MAX_VERIFICATION_ATTEMPTS) {
-            await db.emailAddresses.mutation.update({
-                options: {
-                    where: {
-                        id: emailRecord.id,
-                    },
+        if (emailRecord.verification_attempts! + 1 >= env.MAX_VERIFICATION_ATTEMPTS) {
+            await db.emailAddresses.update({
+                where: {
+                    id: emailRecord.id,
                 },
                 data: {
                     verification_attempts: 0,
@@ -92,16 +94,14 @@ const attemptCodeVerification = async (email: string, code: string): Promise<Ema
             : false;
 
         // If the reset window has passed, reset attempts to 1, otherwise increment
-        await db.emailAddresses.mutation.update({
-            options: {
-                where: {
-                    id: emailRecord.id,
-                },
+        await db.emailAddresses.update({
+            where: {
+                id: emailRecord.id,
             },
             data: {
                 verification_attempts: resetVerificationAttempts
                     ? 1
-                    : emailRecord.verification_attempts + 1,
+                    : emailRecord.verification_attempts! + 1,
                 last_verification_attempt_at: new Date(),
             },
         });
@@ -113,19 +113,28 @@ const attemptCodeVerification = async (email: string, code: string): Promise<Ema
         });
     }
 
-    return emailRecord;
+    if (!emailRecord.id || emailRecord.verification_attempts === undefined) {
+        throw new AppError({
+            statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+            code: "AUTH_INVALID_EMAIL_RECORD",
+            message: "Invalid email record",
+        });
+    }
+
+    return {
+        id: emailRecord.id,
+        verification_attempts: emailRecord.verification_attempts,
+    };
 };
 
-const markEmailAsVerified = async (emailRecord: EmailAddress): Promise<void> => {
-    await db.emailAddresses.mutation.update({
-        options: {
-            where: {
-                id: emailRecord.id,
-            },
+const markEmailAsVerified = async (emailRecord: VerificationEmailRecord): Promise<void> => {
+    await db.emailAddresses.update({
+        where: {
+            id: emailRecord.id,
         },
         data: {
             is_verified: true,
-            verification_attempts: emailRecord.verification_attempts + 1,
+            verification_attempts: emailRecord.verification_attempts! + 1,
         },
     });
 };

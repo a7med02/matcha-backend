@@ -1,6 +1,7 @@
 import { StatusCodes } from "http-status-codes";
 
 import type {
+    AuthTokenPayload,
     AuthUser,
     AuthVerifyEmailResult,
     LoginInput,
@@ -9,13 +10,44 @@ import type {
 import { logger } from "../../config/logger";
 import { AppError } from "../../common/errors/app-error";
 import { checkEmailDoesNotExists, createRecords } from "./helper/register";
-import { RegisterInput, ResendVerificationInput, VerifyEmailInput } from "./auth.validation";
+import {
+    jwksJSONInput,
+    RegisterInput,
+    ResendVerificationInput,
+    VerifyEmailInput,
+} from "./auth.validation";
 import { attemptCodeVerification, markEmailAsVerified } from "./helper/verify-email";
 import { resendVerificationCode } from "./helper/resend-code";
-import { cacheUserSessionsCount, checkUserExists, loginUser, verifyPassword } from "./helper/login";
-import { AuthTokens } from "../../lib/jwt";
+import { checkUserExists, LoginTokens, loginUser, verifyPassword } from "./helper/login";
+import { env } from "../../config/env";
+import { JWT } from "../../lib/jwt";
+import { isSessionValid } from "./helper/refresh";
+import { getPublicKey } from "./helper/jwks-json";
 
 class AuthService {
+    public async jwksJSON(input: jwksJSONInput): Promise<string> {
+        try {
+            if (input.clientSecret === env.JWT_CLIENT_ACCESS_TO_PUBLIC_KEY_SECRET) {
+                return await getPublicKey();
+            }
+            throw new AppError({
+                statusCode: StatusCodes.UNAUTHORIZED,
+                code: "PUBLIC_KEY_RETRIEVAL_UNAUTHORIZED",
+                message: "Invalid client secret",
+            });
+        } catch (error) {
+            logger.debug("Error retrieving public key", { error });
+            logger.error("Failed to retrieve public key:", {
+                message: error instanceof Error ? error.message : "Unknown error",
+            });
+            throw new AppError({
+                statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+                code: "PUBLIC_KEY_RETRIEVAL_FAILED",
+                message: "Failed to retrive public key.",
+            });
+        }
+    }
+
     /**
      * Registers a new user. Validates input, checks for existing email, hashes password, and creates the user record.
      * @param input Registration data including first name, last name, username, email, and password
@@ -55,7 +87,11 @@ class AuthService {
             if (error instanceof AppError) {
                 throw error;
             }
-            logger.error("Error creating user:", { error });
+            logger.debug("Error creating user:", { error });
+            logger.error("User registration failed for email:", {
+                email: input.email,
+                message: error instanceof Error ? error.message : "Unknown error",
+            });
             throw new AppError({
                 statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
                 code: "AUTH_USER_CREATION_FAILED",
@@ -74,7 +110,11 @@ class AuthService {
                 message: "Email verified successfully",
             };
         } catch (error) {
-            logger.error("Email verification failed:", { error });
+            logger.debug("Email verification failed:", { error });
+            logger.error("Email verification failed for email:", {
+                email: input.email,
+                message: error instanceof Error ? error.message : "Unknown error",
+            });
             throw error;
         }
     }
@@ -88,12 +128,16 @@ class AuthService {
                 message: "Verification code resent successfully",
             };
         } catch (error) {
-            logger.error("Resend verification failed:", { error });
+            logger.debug("Resend verification failed:", { error });
+            logger.error("Resend verification failed for email:", {
+                email: input.email,
+                message: error instanceof Error ? error.message : "Unknown error",
+            });
             throw error;
         }
     }
 
-    public async login(input: LoginInput): Promise<{ message: string; tokens: AuthTokens }> {
+    public async login(input: LoginInput): Promise<{ message: string; tokens: LoginTokens }> {
         try {
             const result = await checkUserExists(input.email);
 
@@ -110,15 +154,73 @@ class AuthService {
 
             const loginTokens = await loginUser(result.user.id, result.email);
 
-            await cacheUserSessionsCount(result.user.id);
-
             return {
                 message: "Login successful",
                 tokens: loginTokens,
             };
         } catch (error) {
-            logger.error("Login failed:", { error });
+            logger.debug("Login failed:", { error });
+            logger.error("Login failed for email:", {
+                email: input.email,
+                message: error instanceof Error ? error.message : "Unknown error",
+            });
             throw error;
+        }
+    }
+
+    public async refreshSession(cookies: {
+        [key: string]: string;
+    }): Promise<{ message: string; newSessiontoken: string }> {
+        try {
+            const clientToken: string = cookies[env.JWT_CLIENT_COOKIE_NAME];
+            const isValid = await isSessionValid(clientToken);
+            if (!isValid) {
+                throw new AppError({
+                    statusCode: StatusCodes.UNAUTHORIZED,
+                    code: "AUTH_TOKEN_REFRESH_FAILED",
+                    message: "Refresh token is invalid or expired",
+                });
+            }
+
+            const clientDecoded = JWT.decode(clientToken) as AuthTokenPayload;
+            const newSessiontoken = JWT.refreshSession(clientDecoded.userId, {
+                userId: clientDecoded.userId,
+                email: clientDecoded.email,
+            });
+
+            return {
+                message: "Session refreshed",
+                newSessiontoken,
+            };
+        } catch (error) {
+            logger.debug("Token refresh failed:", { error });
+            logger.error("Token refresh failed:", {
+                message: error instanceof Error ? error.message : "Unknown error",
+            });
+            throw error;
+        }
+    }
+
+    public verifySession(cookie: string): boolean {
+        try {
+            if (!cookie) {
+                throw new AppError({
+                    statusCode: StatusCodes.UNAUTHORIZED,
+                    code: "AUTH_SESSION_INVALID",
+                    message: `Token not provided`,
+                });
+            }
+
+            // Verify both access and refresh tokens
+            JWT.verifyToken(cookie);
+
+            return true;
+        } catch (error) {
+            logger.debug("Session verification failed:", { error });
+            logger.error("Session verification failed:", {
+                message: error instanceof Error ? error.message : "Unknown error",
+            });
+            return false;
         }
     }
 
@@ -127,7 +229,7 @@ class AuthService {
     //             }),
     //         };
     //     } catch (error) {
-    //         logger.error("Login failed:", { error });
+    //         logger.debug("Login failed:", { error });
     //         throw error;
     //     }
     // }
