@@ -4,8 +4,12 @@ import type {
     AuthTokenPayload,
     AuthUser,
     AuthVerifyEmailResult,
+    ChangePasswordResult,
     LoginInput,
+    PasswordResetLinkResult,
+    PasswordResetVerifyResult,
     ResendVerificationResult,
+    UserProfile,
 } from "./auth.types";
 import { logger } from "../../config/logger";
 import { AppError } from "../../common/errors/app-error";
@@ -14,7 +18,10 @@ import {
     jwksJSONInput,
     RegisterInput,
     ResendVerificationInput,
+    ResetPasswordRequestInput,
+    ResetPasswordVerifyInput,
     VerifyEmailInput,
+    ChangePasswordInput,
 } from "./auth.validation";
 import { attemptCodeVerification, markEmailAsVerified } from "./helper/verify-email";
 import { resendVerificationCode } from "./helper/resend-code";
@@ -23,6 +30,11 @@ import { env } from "../../config/env";
 import { JWT } from "../../lib/jwt";
 import { isSessionValid } from "./helper/refresh";
 import { getPublicKey } from "./helper/jwks-json";
+import {
+    createPasswordResetLink,
+    updatePasswordWithResetToken,
+    verifyPasswordResetToken,
+} from "./helper/password-reset";
 
 class AuthService {
     public async jwksJSON(input: jwksJSONInput): Promise<string> {
@@ -224,29 +236,60 @@ class AuthService {
         }
     }
 
-    // public async getCurrentUser(userId: string): Promise<PublicUser> {
-    //                 userId: result.user.id,
-    //             }),
-    //         };
-    //     } catch (error) {
-    //         logger.debug("Login failed:", { error });
-    //         throw error;
-    //     }
-    // }
+    public async requestPasswordReset(
+        input: ResetPasswordRequestInput
+    ): Promise<PasswordResetLinkResult> {
+        try {
+            const resetUrl = await createPasswordResetLink(input.email);
 
-    // public async getCurrentUser(userId: string): Promise<PublicUser> {
-    //     const user = await this.repository.findById(userId);
+            return {
+                resetUrl,
+            };
+        } catch (error) {
+            logger.debug("Password reset request failed:", { error });
+            logger.error("Password reset request failed for email:", {
+                email: input.email,
+                message: error instanceof Error ? error.message : "Unknown error",
+            });
+            throw error;
+        }
+    }
 
-    //     if (!user) {
-    //         throw new AppError({
-    //             statusCode: 404,
-    //             code: "AUTH_USER_NOT_FOUND",
-    //             message: "User not found",
-    //         });
-    //     }
+    public async verifyPasswordReset(
+        input: ResetPasswordVerifyInput
+    ): Promise<PasswordResetVerifyResult> {
+        try {
+            await verifyPasswordResetToken(input.email, input.resetToken);
 
-    //     return this.toPublicUser(user);
-    // }
+            return {
+                message: "Password reset link is valid",
+            };
+        } catch (error) {
+            logger.debug("Password reset verification failed:", { error });
+            logger.error("Password reset verification failed for email:", {
+                email: input.email,
+                message: error instanceof Error ? error.message : "Unknown error",
+            });
+            throw error;
+        }
+    }
+
+    public async changePassword(input: ChangePasswordInput): Promise<ChangePasswordResult> {
+        try {
+            await updatePasswordWithResetToken(input.email, input.resetToken, input.newPassword);
+
+            return {
+                message: "Password updated successfully",
+            };
+        } catch (error) {
+            logger.debug("Password change failed:", { error });
+            logger.error("Password change failed for email:", {
+                email: input.email,
+                message: error instanceof Error ? error.message : "Unknown error",
+            });
+            throw error;
+        }
+    }
 }
 
 const authService = new AuthService();

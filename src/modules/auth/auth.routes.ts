@@ -3,9 +3,12 @@ import { asyncHandler } from "../../common/utils/async-handler";
 import { validateBody } from "../../common/middleware/validate.middleware";
 import { authController } from "./auth.controller";
 import {
+    changePasswordSchema,
     jwksJSONSchema,
     loginSchema,
     registerSchema,
+    resetPasswordRequestSchema,
+    resetPasswordVerifySchema,
     resendVerificationSchema,
     verifyEmailSchema,
 } from "./auth.validation";
@@ -32,7 +35,20 @@ authRoutes.post(
 authRoutes.post("/login", validateBody(loginSchema), asyncHandler(authController.login));
 authRoutes.post("/refresh", asyncHandler(authController.refreshSession));
 authRoutes.post("/verify", asyncHandler(authController.verifySession));
-
-// authRoutes.get("/me", authMiddleware, asyncHandler(authController.me));
+authRoutes.post(
+    "/password-reset",
+    validateBody(resetPasswordRequestSchema),
+    asyncHandler(authController.requestPasswordReset)
+);
+authRoutes.post(
+    "/password-reset/verify",
+    validateBody(resetPasswordVerifySchema),
+    asyncHandler(authController.verifyPasswordReset)
+);
+authRoutes.post(
+    "/password-reset/change",
+    validateBody(changePasswordSchema),
+    asyncHandler(authController.changePassword)
+);
 
 export { authRoutes };

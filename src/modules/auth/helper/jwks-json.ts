@@ -11,7 +11,7 @@ export const getPublicKey = async (): Promise<string> => {
             throw new AppError({
                 statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
                 code: "PUBLIC_KEY_RETRIEVAL_NF",
-                message: "An unexpected error happened."
+                message: "An unexpected error happened.",
             });
         }
 

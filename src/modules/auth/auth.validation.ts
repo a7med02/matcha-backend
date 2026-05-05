@@ -8,6 +8,20 @@ const jwksJSONSchema = z.object({
 
 type jwksJSONInput = z.infer<typeof jwksJSONSchema>;
 
+const emailSchema = z
+    .email("Invalid email address")
+    .min(env.EMAIL_MIN_LENGTH, "Email too short")
+    .max(env.EMAIL_MAX_LENGTH, "Email too long");
+
+const passwordSchema = z
+    .string()
+    .min(env.PASSWORD_MIN_LENGTH, `At least ${env.PASSWORD_MIN_LENGTH} characters`)
+    .max(env.PASSWORD_MAX_LENGTH, `Max ${env.PASSWORD_MAX_LENGTH} characters`)
+    .regex(/[A-Z]/, "Must contain one uppercase letter")
+    .regex(/[a-z]/, "Must contain one lowercase letter")
+    .regex(/[0-9]/, "Must contain one number")
+    .regex(/[!@#$%^&*(),.?\":{}|[\]|<>]/, "Must contain one special character");
+
 const registerSchema = z.object({
     firstName: z
         .string()
@@ -24,37 +38,21 @@ const registerSchema = z.object({
         .min(env.USERNAME_MIN_LENGTH, `Min ${env.USERNAME_MIN_LENGTH} characters`)
         .max(env.USERNAME_MAX_LENGTH, `Max ${env.USERNAME_MAX_LENGTH} characters`)
         .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
-    email: z
-        .email("Invalid email address")
-        .min(env.EMAIL_MIN_LENGTH, "Email too short")
-        .max(env.EMAIL_MAX_LENGTH, "Email too long"),
-    password: z
-        .string()
-        .min(env.PASSWORD_MIN_LENGTH, `At least ${env.PASSWORD_MIN_LENGTH} characters`)
-        .max(env.PASSWORD_MAX_LENGTH, `Max ${env.PASSWORD_MAX_LENGTH} characters`)
-        .regex(/[A-Z]/, "Must contain one uppercase letter")
-        .regex(/[a-z]/, "Must contain one lowercase letter")
-        .regex(/[0-9]/, "Must contain one number")
-        .regex(/[!@#$%^&*(),.?":{}|[\]|<>]/, "Must contain one special character"),
+    email: emailSchema,
+    password: passwordSchema,
 });
 
 type RegisterInput = z.infer<typeof registerSchema>;
 
 const verifyEmailSchema = z.object({
-    email: z
-        .email("Invalid email address")
-        .min(env.EMAIL_MIN_LENGTH, "Email too short")
-        .max(env.EMAIL_MAX_LENGTH, "Email too long"),
+    email: emailSchema,
     verificationCode: z.string().regex(/^\d{6}$/, "Verification code must be a 6-digit number"),
 });
 
 type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 
 const resendVerificationSchema = z.object({
-    email: z
-        .email("Invalid email address")
-        .min(env.EMAIL_MIN_LENGTH, "Email too short")
-        .max(env.EMAIL_MAX_LENGTH, "Email too long"),
+    email: emailSchema,
 });
 
 type ResendVerificationInput = z.infer<typeof resendVerificationSchema>;
@@ -66,5 +64,44 @@ const loginSchema = z.object({
 
 type LoginInput = z.infer<typeof loginSchema>;
 
-export type { RegisterInput, VerifyEmailInput, ResendVerificationInput, LoginInput, jwksJSONInput };
-export { registerSchema, verifyEmailSchema, resendVerificationSchema, loginSchema, jwksJSONSchema };
+const resetPasswordRequestSchema = z.object({
+    email: emailSchema,
+});
+
+type ResetPasswordRequestInput = z.infer<typeof resetPasswordRequestSchema>;
+
+const resetPasswordVerifySchema = z.object({
+    email: emailSchema,
+    resetToken: z.string().min(1, "Reset token is required"),
+});
+
+type ResetPasswordVerifyInput = z.infer<typeof resetPasswordVerifySchema>;
+
+const changePasswordSchema = z.object({
+    email: emailSchema,
+    resetToken: z.string().min(1, "Reset token is required"),
+    newPassword: passwordSchema,
+});
+
+type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
+export type {
+    RegisterInput,
+    VerifyEmailInput,
+    ResendVerificationInput,
+    LoginInput,
+    jwksJSONInput,
+    ResetPasswordRequestInput,
+    ResetPasswordVerifyInput,
+    ChangePasswordInput,
+};
+export {
+    registerSchema,
+    verifyEmailSchema,
+    resendVerificationSchema,
+    loginSchema,
+    jwksJSONSchema,
+    resetPasswordRequestSchema,
+    resetPasswordVerifySchema,
+    changePasswordSchema,
+};

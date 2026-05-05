@@ -33,3 +33,23 @@ export type AuthTokenPayload = {
     userId: string;
     email: string;
 };
+
+export type PasswordResetLinkResult = {
+    resetUrl: string;
+};
+
+export type PasswordResetVerifyResult = {
+    message: string;
+};
+
+export type ChangePasswordResult = {
+    message: string;
+};
+
+export type UserProfile = {
+    id: string;
+    firstName: string;
+    lastName: string;
+    username: string;
+    email: string;
+};

@@ -1,9 +1,11 @@
+import { logger } from "../../../config/logger";
 import { CRYPTO } from "../../../lib/crypto";
 import { db } from "../../../lib/db/orm/client";
 import { JWT } from "../../../lib/jwt";
 
 export const isSessionValid = async (token: string): Promise<boolean> => {
     try {
+        logger.debug("Verifying session token:", { token: token });
         const clientDecoded = JWT.verifyToken(token);
 
         const session = await db.sessions.findUnique({

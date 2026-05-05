@@ -61,8 +61,8 @@ const envSchema = z.object({
         .min(32)
         .default("dev_only_replace_with_secret"),
 
-    JWT_SESSION_COOKIE_NAME: z.string().default("SESSTION_TOKEN"),
-    JWT_CLIENT_COOKIE_NAME: z.string().default("CLIENT_TOKEN"),
+    JWT_SESSION_COOKIE_NAME: z.string().default("__session"),
+    JWT_CLIENT_COOKIE_NAME: z.string().default("__client"),
     JWT_SESSION_EXPIRES_IN: z.string().default("3m"),
     JWT_CLIENT_EXPIRES_IN: z.string().default("7d"), // 7 days
     JWT_SESSION_EXPIRATION_SECONDS: z.coerce.number().int().min(1).default(180), // 3 minutes
@@ -107,6 +107,7 @@ const envSchema = z.object({
     MAX_VERIFICATION_ATTEMPTS: z.coerce.number().int().min(1).default(3),
 
     VERIFICATION_CODE_EXPIRATION_MINUTES: z.coerce.number().int().min(1).default(15),
+    PASSWORD_RESET_TOKEN_EXPIRATION_MINUTES: z.coerce.number().int().min(1).default(15),
     VERIFICATION_ATTEMPT_RESET_WINDOW_MINUTES: z.coerce.number().int().min(1).default(60), // 1 hour
     VERIFICATION_CODE_RESEND_LOCK_MINUTES: z.coerce.number().int().min(1).default(1440), // 24 hours
     VERIFICATION_RESEND_LIMIT: z.coerce.number().int().min(1).default(5),
