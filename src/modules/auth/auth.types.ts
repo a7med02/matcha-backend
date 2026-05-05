@@ -35,7 +35,7 @@ export type AuthTokenPayload = {
 };
 
 export type PasswordResetLinkResult = {
-    resetUrl: string;
+    message: string;
 };
 
 export type PasswordResetVerifyResult = {

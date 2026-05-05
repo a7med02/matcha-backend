@@ -46,7 +46,7 @@ type RegisterInput = z.infer<typeof registerSchema>;
 
 const verifyEmailSchema = z.object({
     email: emailSchema,
-    verificationCode: z.string().regex(/^\d{6}$/, "Verification code must be a 6-digit number"),
+    verificationToken: z.string().min(1, "Verification token is required"),
 });
 
 type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;

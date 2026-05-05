@@ -1,23 +1,25 @@
 import { StatusCodes } from "http-status-codes";
+
 import { AppError } from "../../../common/errors/app-error";
-import { db } from "../../../lib/db/orm/client";
 import { env } from "../../../config/env";
+import { CRYPTO } from "../../../lib/crypto";
+import { db } from "../../../lib/db/orm/client";
 
 type VerificationEmailRecord = {
     id: string;
     verification_attempts: number;
 };
 
-const attemptCodeVerification = async (
+const attemptTokenVerification = async (
     email: string,
-    code: string
+    token: string
 ): Promise<VerificationEmailRecord> => {
-    // 1. Retrieve the email record from the database
     const emailRecord = await db.emailAddresses.findUnique({
         where: {
             email: email,
         },
     });
+
     if (!emailRecord) {
         throw new AppError({
             statusCode: StatusCodes.BAD_REQUEST,
@@ -26,7 +28,6 @@ const attemptCodeVerification = async (
         });
     }
 
-    // 2. Check if the email is locked due to too many failed attempts
     if (
         emailRecord.is_locked === true &&
         emailRecord.lock_expires_at &&
@@ -39,7 +40,6 @@ const attemptCodeVerification = async (
         });
     }
 
-    // 3. Check if the email is already verified
     if (emailRecord.is_verified === true) {
         throw new AppError({
             statusCode: StatusCodes.BAD_REQUEST,
@@ -47,24 +47,27 @@ const attemptCodeVerification = async (
             message: "Email is already verified",
         });
     }
-    console.log("Email verification code expires at: ", emailRecord.verification_expires_at);
-    console.log("Current time: ", new Date());
 
-    // 4. Check if the verification code has expired
-    if (
-        emailRecord.verification_code === code &&
-        emailRecord.verification_expires_at!.getTime() <= Date.now()
-    ) {
+    if (emailRecord.verification_expires_at?.getTime() <= Date.now()) {
         throw new AppError({
             statusCode: StatusCodes.BAD_REQUEST,
-            code: "AUTH_VERIFICATION_CODE_EXPIRED",
-            message: "Verification code has expired",
+            code: "AUTH_VERIFICATION_TOKEN_EXPIRED",
+            message: "Verification link has expired",
         });
     }
 
-    // 5. Verify the code and update attempts and lock status if necessary
-    if (emailRecord.verification_code !== code) {
-        // If the code is incorrect and attempts have reached the maximum, lock the email
+    let storedToken = "";
+    try {
+        storedToken = CRYPTO.decrypt(emailRecord.verification_token);
+    } catch (error) {
+        throw new AppError({
+            statusCode: StatusCodes.BAD_REQUEST,
+            code: "AUTH_INVALID_VERIFICATION_TOKEN",
+            message: "Invalid verification token",
+        });
+    }
+
+    if (storedToken !== token) {
         if (emailRecord.verification_attempts! + 1 >= env.MAX_VERIFICATION_ATTEMPTS) {
             await db.emailAddresses.update({
                 where: {
@@ -86,14 +89,12 @@ const attemptCodeVerification = async (
             });
         }
 
-        // If the code is incorrect but attempts are still allowed, just update the attempts and last attempt time
         const resetVerificationAttempts = emailRecord.last_verification_attempt_at
             ? emailRecord.last_verification_attempt_at.getTime() +
                   env.VERIFICATION_ATTEMPT_RESET_WINDOW_MINUTES * 60 * 1_000 <=
               Date.now()
             : false;
 
-        // If the reset window has passed, reset attempts to 1, otherwise increment
         await db.emailAddresses.update({
             where: {
                 id: emailRecord.id,
@@ -108,22 +109,14 @@ const attemptCodeVerification = async (
 
         throw new AppError({
             statusCode: StatusCodes.BAD_REQUEST,
-            code: "AUTH_INVALID_VERIFICATION_CODE",
-            message: "Invalid verification code",
-        });
-    }
-
-    if (!emailRecord.id || emailRecord.verification_attempts === undefined) {
-        throw new AppError({
-            statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
-            code: "AUTH_INVALID_EMAIL_RECORD",
-            message: "Invalid email record",
+            code: "AUTH_INVALID_VERIFICATION_TOKEN",
+            message: "Invalid verification token",
         });
     }
 
     return {
         id: emailRecord.id,
-        verification_attempts: emailRecord.verification_attempts,
+        verification_attempts: emailRecord.verification_attempts!,
     };
 };
 
@@ -134,9 +127,15 @@ const markEmailAsVerified = async (emailRecord: VerificationEmailRecord): Promis
         },
         data: {
             is_verified: true,
-            verification_attempts: emailRecord.verification_attempts! + 1,
+            verification_attempts: emailRecord.verification_attempts + 1,
         },
     });
 };
 
-export { attemptCodeVerification, markEmailAsVerified };
+const buildVerificationLink = (email: string, token: string): string => {
+    return `${env.APP_DOMAIN}/verify-email?email=${encodeURIComponent(
+        email
+    )}&token=${encodeURIComponent(token)}`;
+};
+
+export { attemptTokenVerification, markEmailAsVerified, buildVerificationLink };

@@ -229,13 +229,79 @@ const authController = {
         }
     },
 
+    logout: async (req: Request, res: Response): Promise<void> => {
+        try {
+            const result = await authService.logout(req.cookies);
+            AuthCookie.clearAuthCookies(res);
+            res.status(StatusCodes.OK).json({
+                status: "success",
+                message: result.message,
+            });
+        } catch (error) {
+            if (error instanceof AppError) {
+                res.status(error.statusCode).json({
+                    status: "error",
+                    code: error.code,
+                    message: error.message,
+                    details: error.details,
+                });
+            } else if (error instanceof DB_Error) {
+                res.status(error.statusCode).json({
+                    status: "error",
+                    code: "AUTH_LOGOUT_FAILED",
+                    message: error.message,
+                    details: error.details,
+                });
+            } else {
+                res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                    status: "error",
+                    code: "AUTH_LOGOUT_FAILED",
+                    message: "An unexpected error occurred during logout",
+                });
+            }
+        }
+    },
+
+    logoutAll: async (req: Request, res: Response): Promise<void> => {
+        try {
+            const result = await authService.logoutAll(req.cookies);
+            AuthCookie.clearAuthCookies(res);
+            res.status(StatusCodes.OK).json({
+                status: "success",
+                message: result.message,
+            });
+        } catch (error) {
+            if (error instanceof AppError) {
+                res.status(error.statusCode).json({
+                    status: "error",
+                    code: error.code,
+                    message: error.message,
+                    details: error.details,
+                });
+            } else if (error instanceof DB_Error) {
+                res.status(error.statusCode).json({
+                    status: "error",
+                    code: "AUTH_LOGOUT_ALL_FAILED",
+                    message: error.message,
+                    details: error.details,
+                });
+            } else {
+                res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                    status: "error",
+                    code: "AUTH_LOGOUT_ALL_FAILED",
+                    message: "An unexpected error occurred during logout all",
+                });
+            }
+        }
+    },
+
     requestPasswordReset: async (req: Request, res: Response): Promise<void> => {
         const payload = req.body as ResetPasswordRequestInput;
         try {
             const result = await authService.requestPasswordReset(payload);
             res.status(StatusCodes.OK).json({
                 status: "success",
-                resetUrl: result.resetUrl,
+                message: result.message,
             });
         } catch (error) {
             if (error instanceof AppError) {

@@ -4,7 +4,8 @@ import { env } from "../../../config/env";
 import { db } from "../../../lib/db/orm/client";
 import { logger } from "../../../config/logger";
 import { AppError } from "../../../common/errors/app-error";
-import { generateEmailVerificationCode } from "../../../lib/email-verification-code";
+import { CRYPTO } from "../../../lib/crypto";
+import { generateEmailVerificationToken } from "../../../lib/email-verification-token";
 import { formatTime } from "../../../lib/format-time";
 
 const COOLDOWN_PERIODS = [
@@ -14,7 +15,7 @@ const COOLDOWN_PERIODS = [
     env.VERIFICATION_RESEND_COOLDOWN_4_MINUTES * 60 * 1000,
 ];
 
-export const resendVerificationCode = async (email: string): Promise<void> => {
+export const resendVerificationCode = async (email: string): Promise<string> => {
     // 1. Retrieve the email record from the database
     const emailRecord = await db.emailAddresses.findUnique({
         where: {
@@ -47,7 +48,7 @@ export const resendVerificationCode = async (email: string): Promise<void> => {
         throw new AppError({
             statusCode: StatusCodes.BAD_REQUEST,
             code: "AUTH_VCODE_RESEND_LOCKED",
-            message: "Resending verification code is locked due to too many attempts",
+            message: "Resending verification link is locked due to too many attempts",
         });
     }
 
@@ -68,26 +69,25 @@ export const resendVerificationCode = async (email: string): Promise<void> => {
         throw new AppError({
             statusCode: StatusCodes.BAD_REQUEST,
             code: "AUTH_VCODE_RESEND_COOLDOWN",
-            message: `Resending verification code is on cooldown. Try after ${formatTime(waitMs)}`,
+            message: `Resending verification link is on cooldown. Try after ${formatTime(waitMs)}`,
         });
     }
 
     try {
-        const newVerificationcode = generateEmailVerificationCode();
+        const newVerificationToken = generateEmailVerificationToken();
+        const newVerificationTokenEncrypted = CRYPTO.encrypt(newVerificationToken);
 
-        // NOTE: I should remove this log before production, it's here for testing purposes
-        logger.info("Resending verification code", {
+        logger.info("Resending verification link", {
             email: email,
-            newVerificationcode: newVerificationcode,
         });
         await db.emailAddresses.update({
             where: {
                 email: email,
             },
             data: {
-                verification_code: newVerificationcode,
+                verification_token: newVerificationTokenEncrypted,
                 verification_expires_at: new Date(
-                    Date.now() + env.VERIFICATION_CODE_EXPIRATION_MINUTES * 60 * 1000
+                    Date.now() + env.VERIFICATION_TOKEN_EXPIRATION_MINUTES * 60 * 1000
                 ),
                 vcode_sent_at: new Date(),
                 vcode_resend_count: emailRecord.vcode_resend_count! + 1,
@@ -96,17 +96,19 @@ export const resendVerificationCode = async (email: string): Promise<void> => {
                 vcode_resend_lock_expires_at:
                     emailRecord.vcode_resend_count! + 1 >= env.VERIFICATION_RESEND_LIMIT
                         ? new Date(
-                              Date.now() + env.VERIFICATION_CODE_RESEND_LOCK_MINUTES * 60 * 1000
+                              Date.now() + env.VERIFICATION_TOKEN_RESEND_LOCK_MINUTES * 60 * 1000
                           )
                         : null,
             },
         });
+
+        return newVerificationToken;
     } catch (error) {
         logger.error("Failed to resend verification code:", { error });
         throw new AppError({
             statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
             code: "AUTH_RESEND_VERIFICATION_FAILED",
-            message: "Failed to resend verification code",
+            message: "Failed to resend verification link",
         });
     }
 };

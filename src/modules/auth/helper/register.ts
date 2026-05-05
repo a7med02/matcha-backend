@@ -1,13 +1,12 @@
 import { StatusCodes } from "http-status-codes";
 
 import { _argon2 } from "../../../lib/argon2";
+import { CRYPTO } from "../../../lib/crypto";
 import { db } from "../../../lib/db/orm/client";
 import { User } from "../../../lib/db/orm/db-types";
 import { AppError } from "../../../common/errors/app-error";
-import { generateEmailVerificationCode } from "../../../lib/email-verification-code";
+import { generateEmailVerificationToken } from "../../../lib/email-verification-token";
 import { env } from "../../../config/env";
-import { DB_Error } from "../../../lib/db/orm/operations/db-error";
-import { redis } from "../../../lib/redis/client";
 
 /**
  * Checks if the provided email already exists in the database.
@@ -33,7 +32,7 @@ interface CreateUserResult {
     user: Partial<User>;
     emailAddress: {
         email: string;
-        verification_code: string;
+        verificationToken: string;
     };
 }
 
@@ -73,14 +72,17 @@ const createRecords = async (
             });
         }
 
+        const verificationToken = generateEmailVerificationToken();
+        const verificationTokenEncrypted = CRYPTO.encrypt(verificationToken);
+
         const emailAddress = await db.emailAddresses.create({
             data: {
                 user_id: user.id,
                 email: email,
                 is_verified: false,
-                verification_code: generateEmailVerificationCode(),
+                verification_token: verificationTokenEncrypted,
                 verification_expires_at: new Date(
-                    Date.now() + env.VERIFICATION_CODE_EXPIRATION_MINUTES * 60 * 1000
+                    Date.now() + env.VERIFICATION_TOKEN_EXPIRATION_MINUTES * 60 * 1000
                 ),
                 vcode_sent_at: new Date(),
             },
@@ -128,7 +130,7 @@ const createRecords = async (
             user,
             emailAddress: {
                 email: emailAddress.email!,
-                verification_code: emailAddress.verification_code!,
+                verificationToken: verificationToken,
             },
         };
     } catch (error) {

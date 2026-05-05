@@ -12,7 +12,7 @@ CREATE TABLE email_addresses (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     email VARCHAR(254) NOT NULL UNIQUE CHECK (char_length(email) >= 5),
     is_verified BOOLEAN NOT NULL DEFAULT false,
-    verification_code VARCHAR(6) NOT NULL,
+    verification_token TEXT NOT NULL,
     verification_expires_at TIMESTAMPTZ NOT NULL,
     verification_attempts INT NOT NULL DEFAULT 0,
     last_verification_attempt_at TIMESTAMPTZ DEFAULT NULL,
@@ -21,7 +21,7 @@ CREATE TABLE email_addresses (
     is_vcode_resend_locked BOOLEAN NOT NULL DEFAULT false,
     vcode_resend_lock_expires_at TIMESTAMPTZ DEFAULT NULL,
     CONSTRAINT verification_check CHECK (
-        (is_verified = false) OR (is_verified = true AND verification_code IS NOT NULL)
+        (is_verified = false) OR (is_verified = true AND verification_token IS NOT NULL)
     ),
 
     is_locked BOOLEAN NOT NULL DEFAULT false,

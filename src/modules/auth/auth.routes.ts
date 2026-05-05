@@ -28,13 +28,15 @@ authRoutes.post(
     asyncHandler(authController.verifyEmail)
 );
 authRoutes.post(
-    "/resend-verification-code",
+    "/resend-verification",
     validateBody(resendVerificationSchema),
     asyncHandler(authController.resendVerification)
 );
 authRoutes.post("/login", validateBody(loginSchema), asyncHandler(authController.login));
 authRoutes.post("/refresh", asyncHandler(authController.refreshSession));
 authRoutes.post("/verify", asyncHandler(authController.verifySession));
+authRoutes.post("/logout", asyncHandler(authController.logout));
+authRoutes.post("/logout-all", asyncHandler(authController.logoutAll));
 authRoutes.post(
     "/password-reset",
     validateBody(resetPasswordRequestSchema),

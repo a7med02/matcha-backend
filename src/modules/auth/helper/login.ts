@@ -1,14 +1,14 @@
 import { StatusCodes } from "http-status-codes";
 
 import { AuthTokens, JWT } from "../../../lib/jwt";
-import { CRYPTO } from "../../../lib/crypto";
 import { _argon2 } from "../../../lib/argon2";
 import { db } from "../../../lib/db/orm/client";
 import { AppError } from "../../../common/errors/app-error";
-import { AuthTokenPayload, AuthUser, PublicUser } from "../auth.types";
+import { AuthTokenPayload } from "../auth.types";
 import { redis } from "../../../lib/redis/client";
 import { ONE_WEEK_IN_SECONDS } from "../../../lib/utils/times";
 import { Session } from "../../../lib/db/orm/db-types";
+import { cacheSessionToken } from "./session-cache";
 
 interface QueryResult {
     id: string;
@@ -166,7 +166,7 @@ const createSession = async (
         return await db.sessions.create({
             data: {
                 user_id: userId,
-                session_token: CRYPTO.encrypt(clientToken),
+                session_token: await _argon2.hash(clientToken),
                 expires_at: expiresAt,
             },
             select: ["id"],
@@ -232,6 +232,8 @@ const loginUser = async (userId: string, email: string): Promise<LoginTokens> =>
         const expiresAt: Date = new Date(Date.now() + JWT.getClientTokenExpiryMs());
 
         const session = await createSession(userId, tokens.clientToken, expiresAt);
+
+        await cacheSessionToken(userId, tokens.clientToken, expiresAt);
 
         // We cache the sessions count and expiry for faster access in other parts.
         await cacheUserSessionsCount(userId);

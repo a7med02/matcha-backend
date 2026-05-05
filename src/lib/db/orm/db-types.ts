@@ -47,7 +47,7 @@ export const EmailAddresses = {
     user_id: "user_id",
     email: "email",
     is_verified: "is_verified",
-    verification_code: "verification_code",
+    verification_token: "verification_token",
     verification_expires_at: "verification_expires_at",
     verification_attempts: "verification_attempts",
     last_verification_attempt_at: "last_verification_attempt_at",
@@ -66,7 +66,7 @@ const BaseEmailAddressSchema = z.object({
     user_id: z.uuid(),
     email: z.email().min(env.EMAIL_MIN_LENGTH).max(env.EMAIL_MAX_LENGTH),
     is_verified: z.boolean(),
-    verification_code: z.string().length(env.VERIFICATION_CODE_LENGTH),
+    verification_token: z.string().min(1),
     verification_expires_at: z.date(),
     verification_attempts: z.number().int(),
     last_verification_attempt_at: z.date().nullable(),
@@ -82,11 +82,11 @@ const BaseEmailAddressSchema = z.object({
 
 export const EmailAddressesSchema = BaseEmailAddressSchema.refine(
     (data) => {
-        if (!data.is_verified && !data.verification_code) return false;
+        if (!data.is_verified && !data.verification_token) return false;
         return true;
     },
     {
-        error: "verification_code is required when is_verified is false",
+        error: "verification_token is required when is_verified is false",
         path: ["is_verified"],
     }
 );
@@ -106,7 +106,7 @@ export type UpsertEmailAddress = z.infer<typeof UpsertEmailAddressSchema>;
  * | `user_id` | `UUID` | ❌ No | *None* | **FK**: `users(id)` (CASCADE) |
  * | `email` | `VARCHAR(254)` | ❌ No | *None* | **Unique**, Min Length: 5 |
  * | `is_verified` | `BOOLEAN` | ❌ No | `false` | Status of email verification |
- * | `verification_code` | `VARCHAR(6)` | ❌ No | *None* | Code for verification flow |
+ * | `verification_token` | `TEXT` | ❌ No | *None* | Token for verification flow |
  * | `verification_attempts` | `INT` | ✅ Yes | `0` | Counter for rate limiting |
  * | `vcode_sent_at` | `TIMESTAMPTZ` | ✅ Yes | `NULL` | Last time verification code was sent |
  * | `vcode_resend_count` | `INT` | ✅ Yes | `0` | Count of verification code resends |

@@ -37,7 +37,7 @@ export class AuthCookie {
             secure: this.isProduction,
             sameSite: isProd ? "lax" : "none", // Ensure refresh token is NOT sent with CORS requests
             maxAge: env.JWT_CLIENT_EXPIRATION_SECONDS * 1_000,
-            path: env.CLIENT_TOKEN_PATH || "/api/v1/auth/refresh",
+            path: env.CLIENT_TOKEN_PATH || "/",
             domain: authDomain,
         });
     }

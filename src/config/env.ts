@@ -103,13 +103,13 @@ const envSchema = z.object({
 
     RECOVERY_CODE_LENGTH: z.coerce.number().int().min(1).default(8),
     RECOVERY_CODE_MAX_COUNT: z.coerce.number().int().min(1).default(10),
-    VERIFICATION_CODE_LENGTH: z.coerce.number().int().min(1).default(6),
+    VERIFICATION_TOKEN_LENGTH: z.coerce.number().int().min(1).default(6),
     MAX_VERIFICATION_ATTEMPTS: z.coerce.number().int().min(1).default(3),
 
-    VERIFICATION_CODE_EXPIRATION_MINUTES: z.coerce.number().int().min(1).default(15),
+    VERIFICATION_TOKEN_EXPIRATION_MINUTES: z.coerce.number().int().min(1).default(15),
     PASSWORD_RESET_TOKEN_EXPIRATION_MINUTES: z.coerce.number().int().min(1).default(15),
     VERIFICATION_ATTEMPT_RESET_WINDOW_MINUTES: z.coerce.number().int().min(1).default(60), // 1 hour
-    VERIFICATION_CODE_RESEND_LOCK_MINUTES: z.coerce.number().int().min(1).default(1440), // 24 hours
+    VERIFICATION_TOKEN_RESEND_LOCK_MINUTES: z.coerce.number().int().min(1).default(1440), // 24 hours
     VERIFICATION_RESEND_LIMIT: z.coerce.number().int().min(1).default(5),
     VERIFICATION_RESEND_COOLDOWN_1_MINUTES: z.coerce.number().int().min(0).default(1),
     VERIFICATION_RESEND_COOLDOWN_2_MINUTES: z.coerce.number().int().min(0).default(5),
@@ -138,6 +138,12 @@ const envSchema = z.object({
             return trimmed && trimmed.length > 0 ? trimmed : undefined;
         }),
     REDIS_CONNECTION_TIMEOUT_MILLIS: z.coerce.number().int().min(0).default(10_000),
+
+    // AWS SES variables
+    AWS_ACCESS_KEY_ID: z.string().min(1).optional(),
+    AWS_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    AWS_REGION: z.string().min(1).optional(),
+    AWS_SES_SOURCE_EMAIL: z.email().min(1).optional(),
 });
 
 const parsed = envSchema.safeParse({

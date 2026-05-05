@@ -23,7 +23,11 @@ import {
     VerifyEmailInput,
     ChangePasswordInput,
 } from "./auth.validation";
-import { attemptCodeVerification, markEmailAsVerified } from "./helper/verify-email";
+import {
+    attemptTokenVerification,
+    buildVerificationLink,
+    markEmailAsVerified,
+} from "./helper/verify-email";
 import { resendVerificationCode } from "./helper/resend-code";
 import { checkUserExists, LoginTokens, loginUser, verifyPassword } from "./helper/login";
 import { env } from "../../config/env";
@@ -35,6 +39,9 @@ import {
     updatePasswordWithResetToken,
     verifyPasswordResetToken,
 } from "./helper/password-reset";
+import { revokeAllSessionsByToken, revokeSessionByToken } from "./helper/logout";
+import { sendPasswordResetEmail, sendVerificationEmail } from "./helper/email";
+import { db } from "../../lib/db/orm/client";
 
 class AuthService {
     public async jwksJSON(input: jwksJSONInput): Promise<string> {
@@ -71,9 +78,6 @@ class AuthService {
             //* if the email already exists, an AppError will be thrown with status code 409
             await checkEmailDoesNotExists(input.email);
 
-            // TODO: Send verification email here (out of scope for now)
-            // for now we will just log the verification code to the console for testing purposes
-
             const result = await createRecords(
                 input.firstName,
                 input.lastName,
@@ -82,10 +86,61 @@ class AuthService {
                 input.password
             );
 
-            logger.info(
-                `User registered with email ${input.email}.
-                Verification code: ${result.emailAddress.verification_code}`
+            const verificationLink = buildVerificationLink(
+                input.email,
+                result.emailAddress.verificationToken
             );
+
+            try {
+                await sendVerificationEmail(input.email, verificationLink);
+            } catch (error) {
+                // Best-effort rollback if email sending fails
+                const userId = result.user.id;
+                if (userId) {
+                    try {
+                        await db.securities.delete({
+                            where: {
+                                user_id: userId,
+                            },
+                        });
+                    } catch (cleanupError) {
+                        logger.error("Failed to delete security record after email failure", {
+                            error: cleanupError,
+                            userId,
+                        });
+                    }
+                    try {
+                        await db.emailAddresses.delete({
+                            where: {
+                                user_id: userId,
+                            },
+                        });
+                    } catch (cleanupError) {
+                        logger.error("Failed to delete email record after email failure", {
+                            error: cleanupError,
+                            userId,
+                        });
+                    }
+                    try {
+                        await db.users.delete({
+                            where: {
+                                id: userId,
+                            },
+                        });
+                    } catch (cleanupError) {
+                        logger.error("Failed to delete user after email failure", {
+                            error: cleanupError,
+                            userId,
+                        });
+                    }
+                }
+
+                throw new AppError({
+                    statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+                    code: "AUTH_EMAIL_SEND_FAILED",
+                    message: "Failed to send verification email",
+                });
+            }
 
             return {
                 id: result.user.id!,
@@ -114,7 +169,10 @@ class AuthService {
 
     public async verifyEmail(input: VerifyEmailInput): Promise<AuthVerifyEmailResult> {
         try {
-            const emailRecord = await attemptCodeVerification(input.email, input.verificationCode);
+            const emailRecord = await attemptTokenVerification(
+                input.email,
+                input.verificationToken
+            );
 
             await markEmailAsVerified(emailRecord);
 
@@ -135,9 +193,12 @@ class AuthService {
         input: ResendVerificationInput
     ): Promise<ResendVerificationResult> {
         try {
-            await resendVerificationCode(input.email);
+            const verificationToken = await resendVerificationCode(input.email);
+            const verificationLink = buildVerificationLink(input.email, verificationToken);
+
+            await sendVerificationEmail(input.email, verificationLink);
             return {
-                message: "Verification code resent successfully",
+                message: "Verification link resent successfully",
             };
         } catch (error) {
             logger.debug("Resend verification failed:", { error });
@@ -236,14 +297,52 @@ class AuthService {
         }
     }
 
+    public async logout(cookies: { [key: string]: string }): Promise<{ message: string }> {
+        const clientToken: string | undefined = cookies[env.JWT_CLIENT_COOKIE_NAME];
+
+        if (!clientToken) {
+            return { message: "Logged out" };
+        }
+
+        try {
+            await revokeSessionByToken(clientToken);
+            return { message: "Logged out" };
+        } catch (error) {
+            if (error instanceof AppError && error.code === "AUTH_INVALID_TOKEN") {
+                return { message: "Logged out" };
+            }
+            throw error;
+        }
+    }
+
+    public async logoutAll(cookies: { [key: string]: string }): Promise<{ message: string }> {
+        const clientToken: string | undefined = cookies[env.JWT_CLIENT_COOKIE_NAME];
+
+        if (!clientToken) {
+            return { message: "Logged out from all sessions" };
+        }
+
+        try {
+            await revokeAllSessionsByToken(clientToken);
+            return { message: "Logged out from all sessions" };
+        } catch (error) {
+            if (error instanceof AppError && error.code === "AUTH_INVALID_TOKEN") {
+                return { message: "Logged out from all sessions" };
+            }
+            throw error;
+        }
+    }
+
     public async requestPasswordReset(
         input: ResetPasswordRequestInput
     ): Promise<PasswordResetLinkResult> {
         try {
             const resetUrl = await createPasswordResetLink(input.email);
 
+            await sendPasswordResetEmail(input.email, resetUrl);
+
             return {
-                resetUrl,
+                message: "Password reset link sent",
             };
         } catch (error) {
             logger.debug("Password reset request failed:", { error });

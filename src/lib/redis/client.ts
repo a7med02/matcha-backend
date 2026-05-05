@@ -162,6 +162,39 @@ export class RedisClient {
         }
     }
 
+    public async sAdd(key: string, member: string): Promise<void> {
+        try {
+            await this.connect();
+            await this.client.sAdd(key, member);
+        } catch (error: unknown) {
+            const err = this.normalizeError(error);
+            logger.error("Failed to add set member in Redis", { key, member, err });
+            throw err;
+        }
+    }
+
+    public async sRem(key: string, member: string): Promise<void> {
+        try {
+            await this.connect();
+            await this.client.sRem(key, member);
+        } catch (error: unknown) {
+            const err = this.normalizeError(error);
+            logger.error("Failed to remove set member in Redis", { key, member, err });
+            throw err;
+        }
+    }
+
+    public async sMembers(key: string): Promise<string[]> {
+        try {
+            await this.connect();
+            return await this.client.sMembers(key);
+        } catch (error: unknown) {
+            const err = this.normalizeError(error);
+            logger.error("Failed to get set members from Redis", { key, err });
+            throw err;
+        }
+    }
+
     public async disconnect(): Promise<void> {
         try {
             if (!this.client.isOpen) {
