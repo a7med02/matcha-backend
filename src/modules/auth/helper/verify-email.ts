@@ -5,6 +5,17 @@ import { env } from "../../../config/env";
 import { CRYPTO } from "../../../lib/crypto";
 import { db } from "../../../lib/db/orm/client";
 
+type VerificationEmailLookupRecord = {
+    id: string;
+    verification_attempts: number;
+    verification_expires_at: Date;
+    verification_token: string;
+    last_verification_attempt_at: Date | null;
+    is_verified: boolean;
+    is_locked: boolean;
+    lock_expires_at: Date | null;
+};
+
 type VerificationEmailRecord = {
     id: string;
     verification_attempts: number;
@@ -14,11 +25,11 @@ const attemptTokenVerification = async (
     email: string,
     token: string
 ): Promise<VerificationEmailRecord> => {
-    const emailRecord = await db.emailAddresses.findUnique({
+    const emailRecord = (await db.emailAddresses.findUnique({
         where: {
             email: email,
         },
-    });
+    })) as VerificationEmailLookupRecord | null;
 
     if (!emailRecord) {
         throw new AppError({
@@ -48,7 +59,7 @@ const attemptTokenVerification = async (
         });
     }
 
-    if (emailRecord.verification_expires_at?.getTime() <= Date.now()) {
+    if (emailRecord.verification_expires_at.getTime() <= Date.now()) {
         throw new AppError({
             statusCode: StatusCodes.BAD_REQUEST,
             code: "AUTH_VERIFICATION_TOKEN_EXPIRED",

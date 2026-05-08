@@ -15,6 +15,7 @@
         "migrate": "tsx ./src/db/manage-db.ts",
         "drop": "tsx ./src/db/manage-db.ts drop",
         "refresh": "tsx ./src/db/manage-db.ts refresh",
+        "generate:orm": "tsx ./src/lib/db/orm/generate.ts ./src/db/schema.sql",
         "test": "tsx ./src/lib/db/queries/error-handler.ts"
     },
     "keywords": [],

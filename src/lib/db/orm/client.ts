@@ -1,21 +1,21 @@
-// This file serves as a central point for accessing all database repositories.
-// Must be edited manually to add new repositories as they are created.
+// This file is generated from schema.sql.
+// Run `npm run generate:orm` after updating the schema.
 
 import { BaseRepository } from "./base-repository";
 import {
-    EmailAddress,
-    EmailAddressesTableName,
-    EmailAddressUniqueFields,
-    SecuritiesTableName,
-    Security,
-    SecurityUniqueFields,
-    Session,
-    SessionsTableName,
-    SessionCompositeUniqueFields,
-    SessionUniqueFields,
     User,
     UsersTableName,
     UserUniqueFields,
+    EmailAddress,
+    EmailAddressesTableName,
+    EmailAddressUniqueFields,
+    Security,
+    SecuritiesTableName,
+    SecurityUniqueFields,
+    Session,
+    SessionsTableName,
+    SessionUniqueFields,
+    SessionCompositeUniqueFields,
 } from "./db-types";
 
 export const db = {
@@ -87,25 +87,22 @@ export const db = {
         SessionUniqueFields,
         { user: User; emailAddress: EmailAddress; security: Security },
         SessionCompositeUniqueFields
-    >(
-        SessionsTableName,
-        {
-            user: {
-                table: UsersTableName,
-                localKey: "user_id",
-                foreignKey: "id",
-            },
-            security: {
-                table: SecuritiesTableName,
-                localKey: "user_id",
-                foreignKey: "user_id",
-            },
-            emailAddress: {
-                table: EmailAddressesTableName,
-                localKey: "user_id",
-                foreignKey: "user_id",
-            },
+    >(SessionsTableName, {
+        user: {
+            table: UsersTableName,
+            localKey: "user_id",
+            foreignKey: "id",
         },
-        [["user_id", "session_token"]]
-    ),
+        emailAddress: {
+            table: EmailAddressesTableName,
+            localKey: "user_id",
+            foreignKey: "user_id",
+        },
+        security: {
+            table: SecuritiesTableName,
+            localKey: "user_id",
+            foreignKey: "user_id",
+        },
+    },
+        [["user_id","session_token"]]),
 };
