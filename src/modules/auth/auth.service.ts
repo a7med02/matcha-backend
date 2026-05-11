@@ -94,6 +94,12 @@ class AuthService {
             try {
                 await sendVerificationEmail(input.email, verificationLink);
             } catch (error) {
+                logger.debug("Failed to send verification email:", { error });
+                logger.error("Failed to send verification email for email:", {
+                    email: input.email,
+                    message: error instanceof Error ? error.message : "Unknown error",
+                });
+
                 // Best-effort rollback if email sending fails
                 const userId = result.user.id;
                 if (userId) {
@@ -225,7 +231,7 @@ class AuthService {
                 });
             }
 
-            const loginTokens = await loginUser(result.user.id, result.email);
+            const loginTokens = await loginUser(result);
 
             return {
                 message: "Login successful",
@@ -255,9 +261,11 @@ class AuthService {
                 });
             }
 
-            const clientDecoded = JWT.decode(clientToken) as AuthTokenPayload;
-            const newSessiontoken = JWT.refreshSession(clientDecoded.userId, {
-                userId: clientDecoded.userId,
+            const clientDecoded = JWT.decode(clientToken) as AuthTokenPayload & { sub: string };
+            const newSessiontoken = JWT.refreshSession(clientDecoded.sub, {
+                firstName: clientDecoded.firstName,
+                lastName: clientDecoded.lastName,
+                username: clientDecoded.username,
                 email: clientDecoded.email,
             });
 

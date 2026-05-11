@@ -16,6 +16,7 @@
         "drop": "tsx ./src/db/manage-db.ts drop",
         "refresh": "tsx ./src/db/manage-db.ts refresh",
         "generate:orm": "tsx ./src/lib/db/orm/generate.ts ./src/db/schema.sql",
+        "generate:test:orm": "tsx ./src/lib/db/orm/test/generate.ts ./src/lib/db/orm/test/schema.sql",
         "test": "tsx ./src/lib/db/queries/error-handler.ts"
     },
     "keywords": [],

@@ -31,7 +31,6 @@ const authController = {
                     status: "error",
                     code: error.code,
                     message: error.message,
-                    details: error.details,
                 });
             } else {
                 res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
@@ -57,7 +56,6 @@ const authController = {
                     status: "error",
                     code: error.code,
                     message: error.message,
-                    details: error.details,
                 });
             } else if (error instanceof DB_Error) {
                 res.status(error.statusCode).json({
@@ -90,7 +88,6 @@ const authController = {
                     status: "error",
                     code: error.code,
                     message: error.message,
-                    details: error.details,
                 });
             } else if (error instanceof DB_Error) {
                 res.status(error.statusCode).json({
@@ -123,7 +120,6 @@ const authController = {
                     status: "error",
                     code: error.code,
                     message: error.message,
-                    details: error.details,
                 });
             } else if (error instanceof DB_Error) {
                 res.status(error.statusCode).json({
@@ -161,7 +157,6 @@ const authController = {
                     status: "error",
                     code: error.code,
                     message: error.message,
-                    details: error.details,
                 });
             } else if (error instanceof DB_Error) {
                 res.status(error.statusCode).json({
@@ -194,7 +189,6 @@ const authController = {
                     status: "error",
                     code: error.code,
                     message: error.message,
-                    details: error.details,
                 });
             } else {
                 res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
@@ -243,7 +237,6 @@ const authController = {
                     status: "error",
                     code: error.code,
                     message: error.message,
-                    details: error.details,
                 });
             } else if (error instanceof DB_Error) {
                 res.status(error.statusCode).json({
@@ -276,7 +269,6 @@ const authController = {
                     status: "error",
                     code: error.code,
                     message: error.message,
-                    details: error.details,
                 });
             } else if (error instanceof DB_Error) {
                 res.status(error.statusCode).json({
@@ -309,7 +301,6 @@ const authController = {
                     status: "error",
                     code: error.code,
                     message: error.message,
-                    details: error.details,
                 });
             } else if (error instanceof DB_Error) {
                 res.status(error.statusCode).json({
@@ -342,7 +333,6 @@ const authController = {
                     status: "error",
                     code: error.code,
                     message: error.message,
-                    details: error.details,
                 });
             } else if (error instanceof DB_Error) {
                 res.status(error.statusCode).json({
@@ -375,7 +365,6 @@ const authController = {
                     status: "error",
                     code: error.code,
                     message: error.message,
-                    details: error.details,
                 });
             } else if (error instanceof DB_Error) {
                 res.status(error.statusCode).json({

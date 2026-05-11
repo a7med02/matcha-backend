@@ -30,7 +30,9 @@ export type ResendVerificationResult = {
 };
 
 export type AuthTokenPayload = {
-    userId: string;
+    firstName: string;
+    lastName: string;
+    username: string;
     email: string;
 };
 

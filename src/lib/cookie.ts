@@ -25,7 +25,7 @@ export class AuthCookie {
         res.cookie(env.JWT_SESSION_COOKIE_NAME, tokens.sessionToken, {
             httpOnly: false, // For DX purposes, allow frontend access to the access token.
             secure: this.isProduction,
-            sameSite: isProd ? "lax" : "none", // Allow access token to be sent with CORS requests (e.g., from frontend on different origin)
+            sameSite: isProd ? "none" : "lax", // Allow access token to be sent with CORS requests (e.g., from frontend on different origin)
             maxAge: env.JWT_SESSION_EXPIRATION_SECONDS * 1_000,
             path: env.SESSTION_TOKEN_PATH || "/",
             domain: appDomain,
@@ -35,7 +35,7 @@ export class AuthCookie {
         res.cookie(env.JWT_CLIENT_COOKIE_NAME, tokens.clientToken, {
             httpOnly: true,
             secure: this.isProduction,
-            sameSite: isProd ? "lax" : "none", // Ensure refresh token is NOT sent with CORS requests
+            sameSite: isProd ? "none" : "lax", // Ensure refresh token is NOT sent with CORS requests
             maxAge: env.JWT_CLIENT_EXPIRATION_SECONDS * 1_000,
             path: env.CLIENT_TOKEN_PATH || "/",
             domain: authDomain,
@@ -55,7 +55,7 @@ export class AuthCookie {
         res.cookie(env.JWT_SESSION_COOKIE_NAME, token, {
             httpOnly: false,
             secure: this.isProduction,
-            sameSite: isProd ? "lax" : "none",
+            sameSite: isProd ? "none" : "lax",
             maxAge: env.JWT_SESSION_EXPIRATION_SECONDS * 1_000,
             path: env.SESSTION_TOKEN_PATH || "/",
             domain: appDomain,

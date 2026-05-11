@@ -49,6 +49,7 @@ const envSchema = z.object({
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
     PORT: z.coerce.number().int().positive().default(3000),
     API_PREFIX: z.string().default("/api"),
+    CORS_FRONTEND_ORIGIN: z.url().default("http://localhost:5173"),
 
     AUTH_DOMAIN: z.url().default("http://localhost:3000"),
     APP_DOMAIN: z.url().default("http://localhost:3000"),
@@ -68,7 +69,7 @@ const envSchema = z.object({
     JWT_SESSION_EXPIRATION_SECONDS: z.coerce.number().int().min(1).default(180), // 3 minutes
     JWT_CLIENT_EXPIRATION_SECONDS: z.coerce.number().int().min(1).default(604800), // 7 days
     JWT_ISSUER: z.url().default("http://localhost:3000"),
-    JWT_AUDIENCE: z.url().default("http://localhost:3000"),
+    JWT_AUDIENCE: z.url().default("http://localhost:5173"),
     SESSTION_TOKEN_PATH: z.string().default("/"),
     CLIENT_TOKEN_PATH: z.string().default("/api/v1/auth/refresh"),
 

@@ -20,12 +20,30 @@ app.disable("x-powered-by");
 
 app.use(requestIdMiddleware);
 app.use(helmet());
-app.use(
-    cors({
-        origin: true,
-        credentials: true,
-    })
-);
+
+const allowedOrigins = [env.CORS_FRONTEND_ORIGIN];
+app.use(cors({
+    origin: function (origin, callback) {
+        // Block non browser requests (e.g., Postman, curl)
+        // if (!origin) {
+        //     return callback(new Error('Only browser-based requests are allowed.'));
+        // }
+
+        // TODO: remove in production.
+        if (!origin) {
+            return callback(null, true);
+        }
+
+        // 2. If an origin exists, check it against the whitelist
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            // 3. Block if it's a browser request from an unknown domain
+            callback(new Error('CORS Policy: This origin is not allowed.'));
+        }
+    },
+    credentials: true,
+}));
 app.use(
     rateLimit({
         windowMs: 15 * 60 * 1000,

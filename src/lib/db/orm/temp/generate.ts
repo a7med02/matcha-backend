@@ -398,10 +398,6 @@ const uniqueFieldsForTable = (table: TableMeta): string[] => {
         if (constraint.type === "unique" && constraint.columns.length === 1) {
             uniqueFields.add(constraint.columns[0]);
         }
-
-        if (constraint.type === "primaryKey" && constraint.columns.length === 1) {
-            uniqueFields.add(constraint.columns[0]);
-        }
     }
 
     return [...uniqueFields];
@@ -410,8 +406,8 @@ const uniqueFieldsForTable = (table: TableMeta): string[] => {
 const compositeUniqueFieldsForTable = (table: TableMeta): string[][] => {
     return table.constraints
         .filter(
-            (constraint): constraint is Extract<TableConstraint, { type: "unique" | "primaryKey" }> =>
-                (constraint.type === "unique" || constraint.type === "primaryKey") && constraint.columns.length > 1
+            (constraint): constraint is Extract<TableConstraint, { type: "unique" }> =>
+                constraint.type === "unique" && constraint.columns.length > 1
         )
         .map((constraint) => constraint.columns);
 };
@@ -680,12 +676,7 @@ const buildUniqueTypeLine = (table: TableMeta): string => {
     const typeName = rowTypeNameFromTable(table.name);
     const uniqueFields = uniqueFieldsForTable(table);
     const compositeUniqueFields = compositeUniqueFieldsForTable(table);
-    const simpleUniqueType =
-        uniqueFields.length > 0
-            ? uniqueFields.map((field) => `"${field}"`).join(" | ")
-            : compositeUniqueFields.length > 0
-                ? "never"
-                : `"id"`;
+    const simpleUniqueType = uniqueFields.length > 0 ? uniqueFields.map((field) => `"${field}"`).join(" | ") : `"id"`;
 
     const lines = [`export type ${typeName}UniqueFields = ${simpleUniqueType};`];
 

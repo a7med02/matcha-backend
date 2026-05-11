@@ -10,7 +10,7 @@ import { ONE_WEEK_IN_SECONDS } from "../../../lib/utils/times";
 import { Session } from "../../../lib/db/orm/db-types";
 import { cacheSessionToken } from "./session-cache";
 
-interface QueryResult {
+type UserDetails = {
     id: string;
     email: string;
     is_verified: boolean;
@@ -33,7 +33,7 @@ interface QueryResult {
  * @returns A promise that resolves to the user record if it exists and is verified
  * @throws {AppError} If the user does not exist or is not verified, an AppError with appropriate status code and message is thrown
  */
-const checkUserExists = async (email: string): Promise<QueryResult> => {
+const checkUserExists = async (email: string): Promise<UserDetails> => {
     const result = await db.emailAddresses.findUnique({
         where: {
             email: email,
@@ -65,7 +65,7 @@ const checkUserExists = async (email: string): Promise<QueryResult> => {
         });
     }
 
-    return result as QueryResult;
+    return result as UserDetails;
 };
 
 /**
@@ -75,7 +75,7 @@ const checkUserExists = async (email: string): Promise<QueryResult> => {
  * @returns A promise that resolves to true if the password is correct, or throws an AppError if the password is incorrect
  * @throws {AppError} If the password is incorrect, an AppError with status code 401 is thrown
  */
-const verifyPassword = async (password: string, result: QueryResult): Promise<boolean> => {
+const verifyPassword = async (password: string, result: UserDetails): Promise<boolean> => {
     const passwordMatches = await _argon2.verify(result.security.password_hash, password);
 
     if (!passwordMatches) {
@@ -201,16 +201,18 @@ export type LoginTokens = {
  * @returns A promise that resolves to a LoginResult containing the public user data and generated tokens
  * @throws If token generation fails or if there is an error creating the session record, an AppError with status code 500 is thrown
  */
-const loginUser = async (userId: string, email: string): Promise<LoginTokens> => {
+const loginUser = async (result: UserDetails): Promise<LoginTokens> => {
     const payload: AuthTokenPayload = {
-        userId: userId,
-        email: email,
+        firstName: result.user.first_name,
+        lastName: result.user.last_name,
+        username: result.user.username,
+        email: result.email,
     };
 
     try {
         // Check if the user already has MAX active sessions.
-        const sessionsCount = await getSessionsCount(userId);
-        const oldestSession = await getSessionExpiry(userId);
+        const sessionsCount = await getSessionsCount(result.user.id);
+        const oldestSession = await getSessionExpiry(result.user.id);
         const oldestSessionExpired = oldestSession
             ? oldestSession.expiresAt.getTime() <= Date.now()
             : false;
@@ -218,7 +220,7 @@ const loginUser = async (userId: string, email: string): Promise<LoginTokens> =>
         // If Max sessions reached, and oldest session is expired, create a new session.
         if (sessionsCount >= 5) {
             if (oldestSession && oldestSessionExpired) {
-                await deleteSession(userId, oldestSession.sessionId);
+                await deleteSession(result.user.id, oldestSession.sessionId);
             } else {
                 throw new AppError({
                     statusCode: StatusCodes.TOO_MANY_REQUESTS,
@@ -228,17 +230,17 @@ const loginUser = async (userId: string, email: string): Promise<LoginTokens> =>
             }
         }
 
-        const tokens: AuthTokens = await JWT.generateTokens(userId, payload);
+        const tokens: AuthTokens = await JWT.generateTokens(result.user.id, payload);
         const expiresAt: Date = new Date(Date.now() + JWT.getClientTokenExpiryMs());
 
-        const session = await createSession(userId, tokens.clientToken, expiresAt);
+        const session = await createSession(result.user.id, tokens.clientToken, expiresAt);
 
-        await cacheSessionToken(userId, tokens.clientToken, expiresAt);
+        await cacheSessionToken(result.user.id, tokens.clientToken, expiresAt);
 
         // We cache the sessions count and expiry for faster access in other parts.
-        await cacheUserSessionsCount(userId);
+        await cacheUserSessionsCount(result.user.id);
         if (!oldestSessionExpired) {
-            await cacheUserSessionExpiry(session.id!, userId, expiresAt);
+            await cacheUserSessionExpiry(session.id!, result.user.id, expiresAt);
         }
 
         return {

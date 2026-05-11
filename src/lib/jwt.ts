@@ -53,15 +53,20 @@ export class JWT {
             subject: userId, // Sets the 'sub' claim
         };
 
+        const payloadWithCreatedAt = {
+            ...payload,
+            createdAt: Date.now(),
+        }
+
         try {
-            const sessionToken = jwt.sign(payload, this.privateKey, {
+            const sessionToken = jwt.sign(payloadWithCreatedAt, this.privateKey, {
                 ...baseOptions,
                 expiresIn: this.accessExpiresIn,
                 jwtid: crypto.randomUUID(), // Sets a unique 'jti' claim
             });
 
             const clientJWTID = crypto.randomUUID();
-            const clientToken = jwt.sign(payload, this.privateKey, {
+            const clientToken = jwt.sign(payloadWithCreatedAt, this.privateKey, {
                 ...baseOptions,
                 expiresIn: this.refreshExpiresIn,
                 jwtid: clientJWTID, // Sets a unique 'jti' claim
@@ -108,7 +113,12 @@ export class JWT {
 
     public static refreshSession(userId: string, payload: AuthTokenPayload): string {
         try {
-            const newSessionToken = jwt.sign(payload, this.privateKey, {
+            const payloadWithCreatedAt = {
+                ...payload,
+                createdAt: Date.now(),
+            };
+
+            const newSessionToken = jwt.sign(payloadWithCreatedAt, this.privateKey, {
                 algorithm: this.algorithm,
                 issuer: this.issuer,
                 audience: this.audience,
